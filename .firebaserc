@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "auth-page-51de5"
-  }
+    "default": "seoanalyzerauth"
+  },
+  "targets": {},
+  "etags": {}
 }

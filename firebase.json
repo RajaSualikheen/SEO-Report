@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "public": "build",
+    "public": "client/dist",      // or "build" if using CRA
     "ignore": [
       "firebase.json",
       "**/.*",
