@@ -1,7 +1,5 @@
 {
   "projects": {
     "default": "seoanalyzerauth"
-  },
-  "targets": {},
-  "etags": {}
+  }
 }
