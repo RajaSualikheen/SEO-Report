@@ -1,161 +1,123 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Home, Info, LogIn, User, LogOut, ChevronDown, ChevronUp } from 'lucide-react';
-// Removed useNavigate import as it requires Router context
+import React, { useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
+import { Menu, X, Sun, Moon } from 'lucide-react'; // Added Sun/Moon for theme toggle concept
 
-// --- Start of Firebase Configuration and AuthService (Moved Here for self-containment) ---
-import { initializeApp } from "firebase/app";
-import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
+const Navbar = () => {
+    const [isOpen, setIsOpen] = useState(false);
+    // You'd integrate a global theme context here for actual light/dark mode
+    const [isDarkMode, setIsDarkMode] = useState(false); 
 
-// Your Firebase config
-const firebaseConfig = {
-  apiKey: "AIzaSyCiYeMcuPhdQDop6Umt2K10ulyAEhbN108",
-  authDomain: "seoanalyzerauth.firebaseapp.com",
-  projectId: "seoanalyzerauth",
-  storageBucket: "seoanalyzerauth.firebasestorage.app",
-  messagingSenderId: "512042912695",
-  appId: "1:512042912695:web:54fce8a18bdcec2ff73632",
-  measurementId: "G-6W2LCZKH66"
-};
+    const toggleMenu = () => {
+        setIsOpen(!isOpen);
+    };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+    const toggleTheme = () => {
+        setIsDarkMode(!isDarkMode);
+        // Implement actual theme toggling logic here (e.g., add/remove 'dark' class from html)
+        document.documentElement.classList.toggle('dark', !isDarkMode);
+    };
 
-// Setup auth
-const auth = getAuth(app);
+    return (
+        <nav className="bg-white/90 dark:bg-gray-950/90 backdrop-blur-md shadow-lg transition-all duration-500 sticky top-0 z-50">
+            <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+                {/* Logo */}
+                <div className="flex-shrink-0">
+                    <RouterLink to="/" className="text-3xl font-extrabold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                        CrestNova.Sol
+                    </RouterLink>
+                </div>
 
-// AuthService functions (simplified for Navbar's needs)
-const logoutUser = async () => {
-  await signOut(auth);
-};
+                {/* Desktop Menu Links */}
+                <div className="hidden md:flex items-center space-x-10">
+                    {[
+                        { name: "Home", path: "/" },
+                        { name: "Features", path: "/features" },
+                        { name: "Pricing", path: "/pricing" },
+                        { name: "Contact", path: "/contact" },
+                    ].map((item) => (
+                        <RouterLink
+                            key={item.name}
+                            to={item.path}
+                            className="text-lg font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors relative group"
+                        >
+                            {item.name}
+                            <span className="absolute left-0 bottom-0 w-full h-0.5 bg-blue-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out"></span>
+                        </RouterLink>
+                    ))}
+                </div>
 
-const onAuthChange = (callback) => {
-  return onAuthStateChanged(auth, callback);
-};
-// --- End of Firebase Configuration and AuthService ---
+                {/* Auth/CTA Buttons & Theme Toggle (Desktop) */}
+                <div className="hidden md:flex items-center space-x-6">
+                    <button onClick={toggleTheme} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-700 dark:text-gray-300">
+                        {isDarkMode ? <Sun className="w-6 h-6" /> : <Moon className="w-6 h-6" />}
+                    </button>
+                    <RouterLink to="/login" className="text-lg font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                        Login
+                    </RouterLink>
+                    <RouterLink
+                        to="/signup"
+                        className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2.5 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all duration-300 shadow-lg transform hover:-translate-y-0.5"
+                    >
+                        Sign Up
+                    </RouterLink>
+                </div>
 
-
-export default function Navbar() {
-  const [user, setUser] = useState(null); // State to hold authenticated user
-  const [showDropdown, setShowDropdown] = useState(false); // State to control dropdown visibility
-  // Removed useNavigate hook
-
-  // Effect to listen for Firebase auth state changes
-  useEffect(() => {
-    const unsubscribe = onAuthChange((currentUser) => {
-      setUser(currentUser); // Update user state based on auth state
-    });
-
-    // Cleanup subscription on component unmount
-    return () => unsubscribe();
-  }, []);
-
-  const handleLogout = async () => {
-    try {
-      await logoutUser();
-      console.log('User logged out successfully');
-      setShowDropdown(false); // Close dropdown after logout
-      window.location.href = '/'; // Redirect to login page using window.location
-    } catch (error) {
-      console.error('Error logging out:', error);
-      // Optionally show an error message to the user
-    }
-  };
-
-  const navVariants = {
-    hidden: { y: -100, opacity: 0 },
-    visible: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
-  };
-
-  const linkVariants = {
-    hover: { scale: 1.05, color: '#DBEAFE', transition: { duration: 0.2 } }, // blue-100
-    tap: { scale: 0.95 },
-  };
-
-  return (
-    <motion.nav
-      className="bg-gradient-to-r from-blue-500 to-indigo-500 p-4 shadow-lg"
-      variants={navVariants}
-      initial="hidden"
-      animate="visible"
-    >
-      <div className="container mx-auto flex justify-between items-center">
-        <motion.div
-          className="text-white text-2xl font-bold tracking-wide cursor-pointer"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          transition={{ type: "spring", stiffness: 400, damping: 10 }}
-          onClick={() => window.location.href = '/'} // Navigate to home on logo click using window.location
-        >
-          CrestNova.Sol
-        </motion.div>
-        <div className="flex items-center space-x-6">
-          <motion.a
-            onClick={() => window.location.href = '/'} // Changed to onClick using window.location
-            className="text-white flex items-center cursor-pointer" // Added cursor-pointer
-            variants={linkVariants}
-            whileHover="hover"
-            whileTap="tap"
-          >
-            <Home className="w-5 h-5 mr-1" /> Home
-          </motion.a>
-          <motion.a
-            onClick={() => window.location.href = '/about'} // Changed to onClick using window.location
-            className="text-white flex items-center cursor-pointer" // Added cursor-pointer
-            variants={linkVariants}
-            whileHover="hover"
-            whileTap="tap"
-          >
-            <Info className="w-5 h-5 mr-1" /> About
-          </motion.a>
-
-          {user ? ( // Conditional rendering based on user state
-            <div className="relative">
-              <motion.button
-                onClick={() => setShowDropdown(!showDropdown)}
-                className="flex items-center text-white p-2 rounded-full hover:bg-blue-600 transition duration-300 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <User className="w-6 h-6" />
-                {showDropdown ? <ChevronUp className="w-4 h-4 ml-1" /> : <ChevronDown className="w-4 h-4 ml-1" />}
-              </motion.button>
-
-              {showDropdown && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20"
-                >
-                  <a
-                    onClick={() => { window.location.href = '/dashboard'; setShowDropdown(false); }} // Changed to onClick using window.location
-                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer" // Added cursor-pointer
-                  >
-                    <User className="w-4 h-4 mr-2" /> Profile
-                  </a>
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    <LogOut className="w-4 h-4 mr-2" /> Logout
-                  </button>
-                </motion.div>
-              )}
+                {/* Mobile Menu Button & Theme Toggle (Mobile) */}
+                <div className="md:hidden flex items-center space-x-2">
+                    <button onClick={toggleTheme} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-700 dark:text-gray-300">
+                        {isDarkMode ? <Sun className="w-6 h-6" /> : <Moon className="w-6 h-6" />}
+                    </button>
+                    <button onClick={toggleMenu} className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md">
+                        {isOpen ? <X className="w-8 h-8" /> : <Menu className="w-8 h-8" />}
+                    </button>
+                </div>
             </div>
-          ) : (
-            <motion.button
-              onClick={() => window.location.href = '/login'} // Navigate to login page using window.location
-              className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-4 py-2 rounded-lg flex items-center hover:from-blue-700 hover:to-indigo-800 shadow-md transition duration-300 ease-in-out transform hover:-translate-y-0.5" // Applied gradient and enhanced hover
-              variants={linkVariants} // Keep existing link variants for consistency
-              whileHover="hover"
-              whileTap="tap"
-            >
-              <LogIn className="w-5 h-5 mr-1" /> Login
-            </motion.button>
-          )}
-        </div>
-      </div>
-    </motion.nav>
-  );
-}
+
+            {/* Mobile Menu (Collapsible) */}
+            {isOpen && (
+                <motion.div
+                    initial={{ opacity: 0, y: -50, height: 0 }}
+                    animate={{ opacity: 1, y: 0, height: 'auto' }}
+                    exit={{ opacity: 0, y: -50, height: 0 }}
+                    transition={{ duration: 0.3, ease: "easeInOut" }}
+                    className="md:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 pb-4 shadow-xl"
+                >
+                    <div className="px-2 pt-2 pb-3 space-y-2">
+                        {[
+                            { name: "Home", path: "/" },
+                            { name: "Features", path: "/features" },
+                            { name: "Pricing", path: "/pricing" },
+                            { name: "Contact", path: "/contact" },
+                        ].map((item) => (
+                            <RouterLink
+                                key={item.name}
+                                to={item.path}
+                                className="block px-4 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800 transition-colors"
+                                onClick={() => setIsOpen(false)} // Close menu on click
+                            >
+                                {item.name}
+                            </RouterLink>
+                        ))}
+                        <hr className="border-gray-200 dark:border-gray-700 my-2" />
+                        <RouterLink
+                            to="/login"
+                            className="block px-4 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
+                            onClick={() => setIsOpen(false)}
+                        >
+                            Login
+                        </RouterLink>
+                        <RouterLink
+                            to="/signup"
+                            className="block px-4 py-2 rounded-md text-base font-medium text-white bg-blue-600 hover:bg-blue-700 text-center shadow-md mt-2"
+                            onClick={() => setIsOpen(false)}
+                        >
+                            Sign Up
+                        </RouterLink>
+                    </div>
+                </motion.div>
+            )}
+        </nav>
+    );
+};
+
+export default Navbar;
