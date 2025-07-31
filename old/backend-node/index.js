@@ -2,7 +2,7 @@
 
 const express = require("express");
 const cors = require("cors");
-const seoReportRouter = require("./routers/seo_report");
+const seoReportRouter = require("./routes/seoReport.js");
 
 const app = express();
 

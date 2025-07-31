@@ -432,7 +432,7 @@ const Report = () => {
                 setError('');
 
                 // *** The only line to be changed ***
-                const response = await fetch('https://your-node-api-domain.com/api/generate-report', {
+                const response = await fetch('http://localhost:4000/api/generate-report', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url: websiteUrl }),
