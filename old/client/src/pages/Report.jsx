@@ -1,19 +1,18 @@
-// D:\My-Web\seo-report-generator\old\client\src\pages\Report.jsx
-
-import React, { useEffect, useState, useContext, useRef } from 'react'; // <-- ADDED useRef
-import { motion } from 'framer-motion';
-import { CheckCircle, AlertTriangle, BookOpen, Hash, TrendingUp, X, FileCode, Link as LinkIcon, ExternalLink, MinusCircle, Smartphone, Code, Info, Sun, Repeat, FileDown } from 'lucide-react'; // <-- ADDED FileDown icon
+import React, { useEffect, useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { CheckCircle, AlertTriangle, BookOpen, Hash, TrendingUp, X, FileCode, Link as LinkIcon, ExternalLink, MinusCircle, Smartphone, Code, Info, Sun, Repeat, FileDown } from 'lucide-react';
 import Navbar from '../components/navbar';
 import Footer from '../components/footer';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ReportCard from './ReportCard';
 import ReactDOM from 'react-dom';
 import { Circle } from 'rc-progress';
-import html2pdf from 'html2pdf.js'; // <-- IMPORT html2pdf.js
+import { PDFDownloadLink } from '@react-pdf/renderer';
+import PDFReport from '../components/PDFReport';
 
-// Firebase Imports (Keep these as they are)
+// Firebase Imports
 import { initializeApp } from "firebase/app";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
 import { getFirestore, doc, getDoc, updateDoc } from "firebase/firestore";
 
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -30,7 +29,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// AppModals component (remains unchanged)
+
 const AppModals = ({
     showKeywordsModal, setShowKeywordsModal, keywordsData,
     showHeadingsModal, setShowHeadingsModal, headingsData,
@@ -38,17 +37,15 @@ const AppModals = ({
     showFixedWidthElementsModal, setShowFixedWidthElementsModal, fixedWidthElementsData,
     showResponsivenessIssuesModal, setShowResponsivenessIssuesModal, responsivenessIssuesData
 }) => {
-    // ... (rest of AppModals is unchanged)
-    const modalRef = React.useRef(null);
+    const modalRef = useRef(null);
     const [portalRoot, setPortalRoot] = useState(null);
 
     useEffect(() => {
         const root = document.getElementById('modal-root');
         if (root) {
             setPortalRoot(root);
-            console.log('✅ #modal-root found in DOM for AppModals.');
         } else {
-            console.error('❌ Error: #modal-root NOT found in the DOM. Please ensure it is present in your index.html.');
+            console.error('❌ Error: #modal-root NOT found in the DOM.');
         }
     }, []);
 
@@ -99,8 +96,7 @@ const AppModals = ({
 
     return (
         <>
-            {/* Keywords Modal */}
-            {showKeywordsModal && keywordsData && (
+            {showKeywordsModal && keywordsModalData && (
                 ReactDOM.createPortal(
                     <div
                         className={`fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4 ${modalTransitionClasses} ${showKeywordsModal ? modalActiveClasses : modalInactiveClasses}`}
@@ -135,7 +131,7 @@ const AppModals = ({
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                        {keywordsData.top_keywords.map((kw, index) => (
+                                        {keywordsModalData?.top_keywords?.map((kw, index) => (
                                             <tr key={index} className={index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-750'}>
                                                 <td className="px-4 py-3 whitespace-nowrap text-base font-medium text-gray-900 dark:text-gray-100">{kw.keyword}</td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-base text-gray-700 dark:text-gray-200">{kw.frequency}</td>
@@ -152,7 +148,7 @@ const AppModals = ({
             )}
 
             {/* Headings Modal */}
-            {showHeadingsModal && headingsData && (
+            {showHeadingsModal && headingsModalData && (
                 ReactDOM.createPortal(
                     <div
                         className={`fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4 ${modalTransitionClasses} ${showHeadingsModal ? modalActiveClasses : modalInactiveClasses}`}
@@ -186,7 +182,7 @@ const AppModals = ({
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                        {headingsData.map((h, index) => (
+                                        {headingsModalData?.map((h, index) => (
                                             <tr key={index} className={index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-750'}>
                                                 <td className="px-4 py-3 whitespace-nowrap text-base font-medium text-gray-900 dark:text-gray-100">&lt;{h.tag}&gt;</td>
                                                 <td className="px-4 py-3 whitespace-normal text-base text-gray-700 dark:text-gray-200">{h.text}</td>
@@ -202,7 +198,7 @@ const AppModals = ({
             )}
 
             {/* Broken Links Modal */}
-            {showBrokenLinksModal && brokenLinksData && (
+            {showBrokenLinksModal && brokenLinksModalData && (
                 ReactDOM.createPortal(
                     <div
                         className={`fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4 ${modalTransitionClasses} ${showBrokenLinksModal ? modalActiveClasses : modalInactiveClasses}`}
@@ -227,7 +223,7 @@ const AppModals = ({
                             </button>
                             <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6 text-center">Broken Links Found</h3>
 
-                            {brokenLinksData.length > 0 ? (
+                            {brokenLinksModalData.length > 0 ? (
                                 <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
                                     <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                                         <thead className="bg-gradient-to-r from-red-500 to-rose-600 text-white">
@@ -237,7 +233,7 @@ const AppModals = ({
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                            {brokenLinksData.map((link, index) => (
+                                            {brokenLinksModalData.map((link, index) => (
                                                 <tr key={index} className={index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-750'}>
                                                     <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100 break-all">
                                                         <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
@@ -260,7 +256,7 @@ const AppModals = ({
             )}
 
             {/* Fixed-Width Elements Modal */}
-            {showFixedWidthElementsModal && fixedWidthElementsData && (
+            {showFixedWidthElementsModal && fixedWidthElementsModalData && (
                 ReactDOM.createPortal(
                     <div
                         className={`fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4 ${modalTransitionClasses} ${showFixedWidthElementsModal ? modalActiveClasses : modalInactiveClasses}`}
@@ -285,18 +281,18 @@ const AppModals = ({
                             </button>
                             <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6 text-center">Fixed-Width Elements</h3>
 
-                            {fixedWidthElementsData.length > 0 ? (
+                            {fixedWidthElementsModalData.length > 0 ? (
                                 <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
                                     <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                                         <thead className="bg-gradient-to-r from-orange-500 to-amber-600 text-white">
                                             <tr>
                                                 <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider rounded-tl-lg">Tag</th>
                                                 <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider">Value</th>
-                                                <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider rounded-tr-lg">Source</th>
+                                                <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider">Source</th>
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                            {fixedWidthElementsData.map((element, index) => (
+                                            {fixedWidthElementsModalData.map((element, index) => (
                                                 <tr key={index} className={index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-750'}>
                                                     <td className="px-4 py-3 whitespace-nowrap text-base font-medium text-gray-900 dark:text-gray-100">&lt;{element.tag}&gt;</td>
                                                     <td className="px-4 py-3 whitespace-nowrap text-base text-gray-700 dark:text-gray-200">{element.value}</td>
@@ -316,7 +312,7 @@ const AppModals = ({
             )}
 
             {/* Responsiveness Issues Modal */}
-            {showResponsivenessIssuesModal && responsivenessIssuesData && (
+            {showResponsivenessIssuesModal && responsivenessIssuesModalData && (
                 ReactDOM.createPortal(
                     <div
                         className={`fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4 ${modalTransitionClasses} ${showResponsivenessIssuesModal ? modalActiveClasses : modalInactiveClasses}`}
@@ -341,10 +337,10 @@ const AppModals = ({
                             </button>
                             <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6 text-center">Responsiveness Issues</h3>
 
-                            {responsivenessIssuesData.length > 0 ? (
+                            {responsivenessIssuesModalData.length > 0 ? (
                                 <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
                                     <ul className="list-disc list-inside text-gray-700 dark:text-gray-200 p-4">
-                                        {responsivenessIssuesData.map((issue, index) => (
+                                        {responsivenessIssuesModalData.map((issue, index) => (
                                             <li key={index} className="flex items-start mb-2">
                                                 {issue.startsWith('❌') ? <AlertTriangle className="w-5 h-5 text-red-500 mr-2 flex-shrink-0" /> : <AlertTriangle className="w-5 h-5 text-orange-500 mr-2 flex-shrink-0" />}
                                                 <span>{issue.replace('❌ ', '').replace('⚠️ ', '')}</span>
@@ -372,18 +368,15 @@ const Report = () => {
     const [reportData, setReportData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [currentUser, setCurrentUser] = useState(null);
+    const [currentUser, setCurrentUser] = useState(undefined);
     const [activeTab, setActiveTab] = useState('Content');
-    const [isDownloading, setIsDownloading] = useState(false); // <-- NEW STATE FOR PDF DOWNLOAD
     
-    // NEW STATE FOR BRANDING DATA FROM LOCALSTORAGE
     const [agencyName, setAgencyName] = useState('');
     const [agencyLogoPreview, setAgencyLogoPreview] = useState(null);
 
-    // NEW: Ref to the report content for PDF conversion
     const reportRef = useRef(null);
 
-    // Modal states and handlers (unchanged)
+    // MODAL STATES AND HANDLERS - THESE MUST BE DECLARED HERE
     const [showKeywordsModal, setShowKeywordsModal] = useState(false);
     const [keywordsModalData, setKeywordsModalData] = useState(null);
     const [showHeadingsModal, setShowHeadingsModal] = useState(false);
@@ -419,27 +412,30 @@ const Report = () => {
         setResponsivenessIssuesModalData(data);
         setShowResponsivenessIssuesModal(true);
     };
+    // END MODAL STATES AND HANDLERS
 
-    // ... (rest of useEffects for Firebase Auth)
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
-            if (user) {
-                setCurrentUser(user);
-            } else {
-                setCurrentUser(null);
-            }
+            setCurrentUser(user);
         });
         return () => unsubscribe();
     }, []);
 
+    const handleLogout = async () => {
+        try {
+            await signOut(auth);
+            navigate("/");
+        } catch (error) {
+            console.error("Logout failed:", error);
+            setError("Failed to log out.");
+        }
+    };
+    
     useEffect(() => {
-        if (!websiteUrl) {
-            setError('No website URL provided. Please go back to the homepage and enter a URL.');
-            setLoading(false);
+        if (!websiteUrl || typeof currentUser === 'undefined') {
             return;
         }
         
-        // NEW: Load branding data from local storage
         const storedName = localStorage.getItem('agencyName');
         const storedLogo = localStorage.getItem('agencyLogoPreview');
         if (storedName) setAgencyName(storedName);
@@ -450,7 +446,6 @@ const Report = () => {
                 setLoading(true);
                 setError('');
 
-                // You already updated this to your Render URL. Keep it that way.
                 const response = await fetch('https://seo-report-11.onrender.com/api/generate-report', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -474,7 +469,6 @@ const Report = () => {
                 const backendData = await response.json();
                 console.log("Backend Data:", backendData);
 
-                // --- BEGIN: RESTRUCTURE SECTIONS FOR TABS ---
                 const groupedSections = {
                     Content: [],
                     Technical: [],
@@ -533,7 +527,6 @@ const Report = () => {
                 const metadataLengthAudit = backendData.metadata_length_audit || {};
 
                 // --- Content Group ---
-                // Title Optimization
                 let titleStatus = metadataLengthAudit.title?.status.toLowerCase() || 'bad';
                 let titleExplanation = metadataLengthAudit.title?.recommendation || 'Title tag analysis failed.';
                 groupedSections.Content.push({
@@ -544,7 +537,6 @@ const Report = () => {
                     metadataLengthData: metadataLengthAudit.title
                 });
 
-                // Meta Description
                 let metaDescriptionStatus = metadataLengthAudit.meta_description?.status.toLowerCase() || 'bad';
                 let metaDescriptionExplanation = metadataLengthAudit.meta_description?.recommendation || 'Meta description analysis failed.';
                 groupedSections.Content.push({
@@ -555,7 +547,6 @@ const Report = () => {
                     metadataLengthData: metadataLengthAudit.meta_description
                 });
 
-                // Content Structure
                 const h1Count = backendData.h1_count;
                 const h2Count = backendData.h2_count;
                 const h3Count = backendData.h3_count;
@@ -577,7 +568,6 @@ const Report = () => {
                     headingIssues: headingIssues,
                 });
 
-                // Content Quality Analysis (including Keywords & Readability)
                 const contentAnalysis = backendData.content_analysis || {};
                 const readabilityInfo = getReadabilityStatus(contentAnalysis.flesch_reading_ease_score);
                 let contentAnalysisStatus = readabilityInfo.status;
@@ -590,12 +580,11 @@ const Report = () => {
                     id: 'content-analysis',
                     title: 'Content Quality Analysis',
                     status: contentAnalysisStatus,
-                    explanation: null, // Explanation is handled within ReportCard for this section
-                    contentAnalysisData: contentAnalysis, // Pass the full content analysis data
+                    explanation: null,
+                    contentAnalysisData: contentAnalysis,
                 });
 
                 // --- Technical Group ---
-                // Image Accessibility
                 let withAlt = 0;
                 let total = 0;
                 if (backendData.alt_image_ratio) {
@@ -618,7 +607,6 @@ const Report = () => {
                     explanation: total === 0 ? 'No images found on the page.' : withAlt === total ? `All ${total} images have alt attributes. Great job!` : `${withAlt} out of ${total} images have alt attributes. Add alt text for better accessibility and SEO.`,
                 });
 
-                // Speed Performance
                 const speedAudit = backendData.speed_audit || {};
                 const speedAuditStatus = (speedAudit.issues && speedAudit.issues.length === 0) ? 'good' : 'warning';
                 groupedSections.Technical.push({
@@ -629,7 +617,6 @@ const Report = () => {
                     speedAuditData: speedAudit
                 });
 
-                // Sitemap & Crawling
                 const sitemap = backendData.sitemap || {};
                 let sitemapStatus = 'bad';
                 if (sitemap.found && sitemap.url_count > 0) {
@@ -645,7 +632,6 @@ const Report = () => {
                     sitemapData: sitemap
                 });
 
-                // Link Profile
                 const linkAudit = backendData.link_audit || {};
                 const linkAuditStatus = (linkAudit.broken_links_count === 0) ? 'good' : 'bad';
                 groupedSections.Technical.push({
@@ -656,7 +642,6 @@ const Report = () => {
                     linkAuditData: linkAudit
                 });
 
-                // Structured Data Schema
                 const structuredDataAudit = backendData.structured_data_audit || {};
                 let structuredDataStatus = 'bad';
                 let structuredDataExplanation = '';
@@ -681,7 +666,6 @@ const Report = () => {
                     structuredDataAuditData: structuredDataAudit
                 });
 
-                // NEW: Local SEO Audit Section
                 const localSeoAudit = backendData.local_seo_audit || {};
                 let localSeoStatus = localSeoAudit.status.toLowerCase().includes('present') ? 'good' :
                                            localSeoAudit.status.toLowerCase().includes('partial') ? 'warning' : 'bad';
@@ -695,17 +679,16 @@ const Report = () => {
                     localSeoExplanation = "Local SEO essentials are missing. Consider implementing schema, physical address, and phone number.";
                 }
 
-                groupedSections.Technical.push({ // Adding to Technical group
+                groupedSections.Technical.push({
                     id: 'local-seo-audit',
                     title: 'Local SEO',
                     status: localSeoStatus,
                     explanation: localSeoExplanation,
-                    localSeoAuditData: localSeoAudit // Pass the full audit data
+                    localSeoAuditData: localSeoAudit
                 });
 
 
                 // --- User Experience Group ---
-                // Mobile Experience
                 const mobileResponsivenessAudit = backendData.mobile_responsiveness_audit || {};
                 const mobileResponsivenessStatus = getMobileResponsivenessDisplayStatus(mobileResponsivenessAudit);
                 const mobileResponsivenessExplanation = getMobileResponsivenessExplanation(mobileResponsivenessAudit);
@@ -717,7 +700,6 @@ const Report = () => {
                     mobileResponsivenessData: mobileResponsivenessAudit
                 });
 
-                // Social Media Integration
                 const ogTwitterAudit = backendData.og_twitter_audit || {};
                 let socialMetaStatus = 'bad';
                 if (ogTwitterAudit.og_title_found && ogTwitterAudit.og_image_found && ogTwitterAudit.og_image_url && ogTwitterAudit.og_image_url.trim() !== '') {
@@ -736,56 +718,49 @@ const Report = () => {
                 });
 
                 // --- Security Group ---
-                // Canonical (moved here for grouping consistency)
                 groupedSections.Security.push({
                     id: 'canonical',
-                    title: 'Canonical URL', // Changed title for clarity
+                    title: 'Canonical URL',
                     status: getStatus(backendData.canonical),
                     explanation: backendData.canonical === 'Missing' ? 'Missing canonical URL tag. This helps prevent duplicate content issues.' : `Canonical URL found: ${backendData.canonical}`
                 });
 
-                // HTTPS
                 groupedSections.Security.push({
                     id: 'https',
-                    title: 'HTTPS Usage', // Changed title for clarity
+                    title: 'HTTPS Usage',
                     status: getStatus(backendData.uses_https, true),
                     explanation: backendData.uses_https ? 'Site is using HTTPS. Good for security and SEO.' : 'Site is not using HTTPS. This affects security and search rankings.'
                 });
 
-                // Robots.txt
                 groupedSections.Security.push({
                     id: 'robots',
-                    title: 'Robots.txt', // Changed title for clarity
+                    title: 'Robots.txt',
                     status: getStatus(backendData.has_robots_txt, true),
                     explanation: backendData.has_robots_txt ? 'robots.txt file found. Good for search engine crawling control.' : 'Missing or inaccessible robots.txt file.'
                 });
 
-                // Favicon
                 groupedSections.Security.push({
                     id: 'favicon',
-                    title: 'Favicon', // Changed title for clarity
+                    title: 'Favicon',
                     status: getStatus(backendData.has_favicon, true),
                     explanation: backendData.has_favicon ? 'Favicon found. Important for branding and user experience.' : 'Missing favicon.ico file.'
                 });
 
-                // --- END: RESTRUCTURE SECTIONS FOR TABS ---
-
-                // Calculate overall score based on all sections
                 const allSections = Object.values(groupedSections).flat();
                 const goodCount = allSections.filter(section => section.status === 'good').length;
-                const calculatedOverallScore = Math.round((goodCount / (allSections.length || 1)) * 100); // Avoid division by zero
+                const calculatedOverallScore = Math.round((goodCount / (allSections.length || 1)) * 100);
 
                 const processedReportData = {
                     url: websiteUrl,
                     timestamp: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
-                    overallScore: backendData.score || calculatedOverallScore, // Use backend score if available, otherwise calculate
-                    groupedSections: groupedSections, // Store grouped sections
-                    backendData: backendData, // Pass the entire backendData object
+                    overallScore: backendData.score || calculatedOverallScore,
+                    groupedSections: groupedSections,
+                    backendData: backendData,
                     metadata_length_audit: backendData.metadata_length_audit,
                 };
 
                 setReportData(processedReportData);
-
+                
                 if (currentUser && currentUser.uid) {
                     try {
                         const userDocRef = doc(db, 'users', currentUser.uid);
@@ -814,7 +789,7 @@ const Report = () => {
                     } catch (saveError) {
                         console.error("Error saving report from Report page:", saveError);
                     }
-                } else {
+                } else if (currentUser === null) {
                     console.warn("User not logged in, report not saved to history.");
                 }
 
@@ -828,101 +803,29 @@ const Report = () => {
 
         fetchReport();
     }, [websiteUrl, currentUser, db]);
-
-    // NEW: Function to generate and download the PDF report
-    const handleDownloadPdf = async () => {
-        if (!reportRef.current || isDownloading) return;
-
-        setIsDownloading(true);
-
-        const filename = `SEO_Report_${reportData.url.replace(/https?:\/\//, '').replace(/\//g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
-
-        // Create a temporary element to hold the PDF content
-        const content = document.createElement('div');
-        content.style.padding = '20px';
-        content.style.fontFamily = 'sans-serif';
-        content.style.color = '#333';
-
-        // Add the white-label header
-        const header = document.createElement('div');
-        header.style.textAlign = 'center';
-        header.style.marginBottom = '30px';
-        if (agencyLogoPreview) {
-            const logoImg = document.createElement('img');
-            logoImg.src = agencyLogoPreview;
-            logoImg.alt = "Agency Logo";
-            logoImg.style.maxHeight = '50px';
-            logoImg.style.marginBottom = '10px';
-            header.appendChild(logoImg);
-        } else {
-            const logoText = document.createElement('h1');
-            logoText.innerText = agencyName || 'CrestNova.Sol';
-            logoText.style.fontSize = '2.5rem';
-            logoText.style.fontWeight = 'bold';
-            logoText.style.color = '#4F46E5';
-            header.appendChild(logoText);
-        }
-
-        const reportTitle = document.createElement('h2');
-        reportTitle.innerText = "Premium SEO Audit Report";
-        reportTitle.style.fontSize = '1.5rem';
-        reportTitle.style.marginBottom = '10px';
-        header.appendChild(reportTitle);
-
-        const reportSubtitle = document.createElement('p');
-        reportSubtitle.innerText = `Report for: ${reportData.url}`;
-        reportSubtitle.style.fontSize = '1rem';
-        reportSubtitle.style.color = '#666';
-        header.appendChild(reportSubtitle);
-
-        content.appendChild(header);
-
-        // Clone the existing report content to capture it for the PDF
-        const reportContentClone = reportRef.current.cloneNode(true);
-        // Clean up the cloned content for the PDF (e.g., remove buttons)
-        reportContentClone.querySelectorAll('button').forEach(btn => btn.remove());
-        reportContentClone.style.backgroundColor = '#fff';
-        reportContentClone.style.color = '#333';
-
-        content.appendChild(reportContentClone);
-
-        const options = {
-            margin: 1,
-            filename: filename,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2 }, // Higher scale for better image quality
-            jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-        };
-
-        html2pdf().from(content).set(options).save().finally(() => {
-            setIsDownloading(false);
-        });
-    };
-
+    
+    // The handleDownloadPdf function is no longer needed with PDFDownloadLink
+    
     const getScoreColor = (score) => {
-        if (score >= 80) return '#22C55E'; // green-500
-        if (score >= 60) return '#F97316'; // orange-500
-        return '#EF4444'; // red-500
+        if (score >= 80) return '#22C55E';
+        if (score >= 60) return '#F97316';
+        return '#EF4444';
     };
 
-    // Helper to calculate a category score based on good/total sections
     const calculateCategoryScore = (categoryName) => {
         const sections = reportData?.groupedSections?.[categoryName] || [];
         const totalSections = sections.length;
         if (totalSections === 0) return { score: 0, max: 0, percentage: 0 };
-
         let goodCount = 0;
         sections.forEach(section => {
             if (section.status === 'good') {
                 goodCount++;
             }
         });
-
         const percentage = Math.round((goodCount / totalSections) * 100);
         return { score: goodCount, max: totalSections, percentage: percentage };
     };
 
-    // New helper to get status count for badges in tabs
     const getTabStatusCounts = (tabSections) => {
         const counts = { good: 0, warning: 0, bad: 0 };
         tabSections.forEach(section => {
@@ -932,7 +835,6 @@ const Report = () => {
     };
 
 
-    // Only attempt to access reportData properties if reportData is not null
     const {
         url: reportUrl,
         overallScore = 0,
@@ -940,7 +842,6 @@ const Report = () => {
         backendData = {}
     } = reportData || {};
 
-    // Prepare category data for rendering the breakdown bars
     const categoryBreakdownData = [
         { name: 'Overall SEO Score', id: 'overall', color: '#3b82f6' },
         { name: 'Content', id: 'content', color: '#22C55E' },
@@ -971,16 +872,10 @@ const Report = () => {
 
 
     if (loading) {
-        // --- NEW ELEGANT LOADING SCREEN ---
         const brandColors = {
-            primary: '#8A4AF3', // Purple from CrestNova.Sol title
-            secondary: '#3B82F6', // Blue
-            accent: '#C084FC' // Lighter purple
-        };
-
-        const dotVariants = {
-            start: { y: "0%" },
-            end: { y: "100%" },
+            primary: '#8A4AF3',
+            secondary: '#3B82F6',
+            accent: '#C084FC'
         };
 
         const Dot = ({ delay }) => (
@@ -1006,7 +901,6 @@ const Report = () => {
             <div
                 className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-purple-100 text-gray-800 dark:from-gray-900 dark:to-gray-800 dark:text-gray-100 transition-colors duration-500 relative overflow-hidden"
             >
-                {/* Subtle Background Pattern/Animation */}
                 <motion.div
                     className="absolute inset-0 z-0 opacity-10"
                     initial={{ scale: 1, rotate: 0 }}
@@ -1041,7 +935,6 @@ const Report = () => {
                         Analyzing over 50+ SEO parameters for optimal performance.
                     </p>
                 </motion.div>
-                {/* --- END NEW ELEGANT LOADING SCREEN --- */}
             </div>
         );
     }
@@ -1063,186 +956,185 @@ const Report = () => {
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 font-sans text-gray-800 dark:text-gray-100 transition-colors duration-500">
-            <Navbar />
+            <Navbar user={currentUser} handleLogout={handleLogout} />
 
             <main className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
-                {/* NEW: Premium SEO Report Card */}
-                <motion.section
-                    className="bg-white p-6 rounded-xl shadow-lg mb-8 dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6 }}
-                >
-                    {/* Header of the new card */}
-                    <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                            CrestNova.Sol
-                        </h2>
-                        <div className="flex items-center space-x-2">
-                            {/* Theme toggle placeholder */}
-                            <button className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                                <Sun className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-                            </button>
-                            {/* Refresh/Rescan button */}
-                            <button
-                                onClick={() => window.location.reload()}
-                                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition"
-                                title="Rescan Website"
-                            >
-                                <Repeat className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-                            </button>
-                        </div>
-                    </div>
-
-                    <h3 className="text-3xl font-extrabold text-gray-900 dark:text-gray-100 mb-6">
-                        Premium SEO Report
-                    </h3>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-6 items-center">
-                        {/* Left Side: Overall Score Circular Progress */}
-                        <div className="md:col-span-1 flex flex-col items-center justify-center p-4">
-                            <div className="relative w-40 h-40">
-                                <Circle
-                                    percent={overallScore}
-                                    strokeWidth={8}
-                                    strokeColor="#3b82f6" // A distinct blue for the progress
-                                    trailColor="#e0e0e0" // Lighter gray for the trail
-                                    trailWidth={8}
-                                    strokeLinecap="round"
-                                />
-                                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
-                                    <span className="text-4xl font-bold text-gray-900 dark:text-gray-100">
-                                        {overallScore}
-                                    </span>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Total score</p>
-                                </div>
+                <div ref={reportRef}>
+                    <motion.section
+                        className="bg-white p-6 rounded-xl shadow-lg mb-8 dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6 }}
+                    >
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                                CrestNova.Sol
+                            </h2>
+                            <div className="flex items-center space-x-2">
+                                <button className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                                    <Sun className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                                </button>
+                                <button
+                                    onClick={() => window.location.reload()}
+                                    className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+                                    title="Rescan Website"
+                                >
+                                    <Repeat className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                                </button>
                             </div>
                         </div>
 
-                        {/* Right Side: Category Breakdown Bars */}
-                        <div className="md:col-span-2 lg:col-span-1 space-y-3 p-4">
-                            {categoryBreakdownData.map((category) => (
-                                <div key={category.name} className="flex items-center space-x-3">
-                                    <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: category.color }}></span>
-                                    <span className="flex-grow text-sm font-medium text-gray-700 dark:text-gray-300">{category.name}</span>
-                                    <div className="relative w-24 bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                                        <motion.div
-                                            className="h-2.5 rounded-full"
-                                            style={{
-                                                width: `${category.percentage}%`,
-                                                backgroundColor: category.color,
-                                            }}
-                                            initial={{ width: 0 }}
-                                            animate={{ width: `${category.percentage}%` }}
-                                            transition={{ duration: 0.8 }}
-                                        />
+                        <h3 className="text-3xl font-extrabold text-gray-900 dark:text-gray-100 mb-6">
+                            Premium SEO Report
+                        </h3>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-6 items-center">
+                            <div className="md:col-span-1 flex flex-col items-center justify-center p-4">
+                                <div className="relative w-40 h-40">
+                                    <Circle
+                                        percent={overallScore}
+                                        strokeWidth={8}
+                                        strokeColor="#3b82f6"
+                                        trailColor="#e0e0e0"
+                                        trailWidth={8}
+                                        strokeLinecap="round"
+                                    />
+                                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
+                                        <span className="text-4xl font-bold text-gray-900 dark:text-gray-100">
+                                            {overallScore}
+                                        </span>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Total score</p>
                                     </div>
-                                    <span className="w-10 text-right text-sm font-medium text-gray-600 dark:text-gray-400">
-                                        {category.currentScore}/{category.maxScore}
-                                    </span>
                                 </div>
-                            ))}
+                            </div>
+
+                            <div className="md:col-span-2 lg:col-span-1 space-y-3 p-4">
+                                {categoryBreakdownData.map((category) => (
+                                    <div key={category.name} className="flex items-center space-x-3">
+                                        <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: category.color }}></span>
+                                        <span className="flex-grow text-sm font-medium text-gray-700 dark:text-gray-300">{category.name}</span>
+                                        <div className="relative w-24 bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                                            <motion.div
+                                                className="h-2.5 rounded-full"
+                                                style={{
+                                                    width: `${category.percentage}%`,
+                                                    backgroundColor: category.color,
+                                                }}
+                                                initial={{ width: 0 }}
+                                                animate={{ width: `${category.percentage}%` }}
+                                                transition={{ duration: 0.8 }}
+                                            />
+                                        </div>
+                                        <span className="w-10 text-right text-sm font-medium text-gray-600 dark:text-gray-400">
+                                            {category.currentScore}/{category.maxScore}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="hidden lg:block lg:col-span-1"></div>
                         </div>
 
-                        {/* Spacer for 3-column layout on large screens, or empty on 2-col */}
-                        <div className="hidden lg:block lg:col-span-1"></div>
-                    </div>
+                        <div className="mt-8 flex flex-wrap justify-between items-center space-y-4 sm:space-y-0">
+                            <div className="flex-grow flex flex-wrap justify-center sm:justify-start">
+                                <nav className="flex space-x-2 sm:space-x-4 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                                    {tabNames.map((tab) => {
+                                        const counts = getTabStatusCounts(groupedSections?.[tab] || []);
+                                        return (
+                                            <button
+                                                key={tab}
+                                                onClick={() => setActiveTab(tab)}
+                                                className={`
+                                                    ${activeTab === tab
+                                                        ? 'bg-white text-indigo-600 dark:bg-gray-900 dark:text-indigo-400 shadow'
+                                                        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}
+                                                    relative px-4 py-2 rounded-md font-medium text-sm transition-colors duration-200 ease-in-out flex items-center
+                                                `}
+                                            >
+                                                {tab}
+                                                <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                                    counts.bad > 0 ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                                                    counts.warning > 0 ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
+                                                    'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                                    }`}>
+                                                    {counts.bad + counts.warning + counts.good}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </nav>
+                            </div>
 
-                    {/* Bottom Section: Tabs and Fix Critical Issues Button */}
-                    <div className="mt-8 flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
-                        {/* Navigation Tabs */}
-                        <div className="flex-grow flex justify-center sm:justify-start">
-                            <nav className="flex space-x-2 sm:space-x-4 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-                                {tabNames.map((tab) => {
-                                    const counts = getTabStatusCounts(groupedSections?.[tab] || []);
-                                    // Determine a unified status for the tab to pick icon color for badge if needed
-                                    // For simplicity, just use the count here as the image shows
-
-                                    return (
-                                        <button
-                                            key={tab}
-                                            onClick={() => setActiveTab(tab)}
-                                            className={`
-                                                ${activeTab === tab
-                                                    ? 'bg-white text-indigo-600 dark:bg-gray-900 dark:text-indigo-400 shadow'
-                                                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}
-                                                relative px-4 py-2 rounded-md font-medium text-sm transition-colors duration-200 ease-in-out flex items-center
-                                            `}
-                                        >
-                                            {tab}
-                                            <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                                counts.bad > 0 ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                                                counts.warning > 0 ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
-                                                'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                                }`}>
-                                                {counts.bad + counts.warning + counts.good}
-                                            </span>
-                                        </button>
-                                    );
-                                })}
-                            </nav>
+                            <div className="flex-shrink-0 flex space-x-2">
+                                {reportData && (
+                                    <PDFDownloadLink
+                                        document={
+                                            <PDFReport
+                                                reportData={reportData}
+                                                agencyName={agencyName}
+                                                agencyLogoPreview={agencyLogoPreview}
+                                            />
+                                        }
+                                        fileName={`SEO_Report_${(reportData?.url || 'untitled').replace(/https?:\/\//, '').replace(/\//g, '_')}.pdf`}
+                                    >
+                                        {({ loading }) => (
+                                            <motion.button
+                                                disabled={loading}
+                                                className={`py-2.5 px-5 rounded-lg shadow-md font-bold text-sm flex items-center justify-center transition-colors duration-200
+                                                    ${loading
+                                                        ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                                                        : 'bg-blue-600 text-white hover:bg-blue-700'}`
+                                                    }
+                                                whileHover={{ scale: loading ? 1 : 1.02 }}
+                                                whileTap={{ scale: loading ? 1 : 0.98 }}
+                                            >
+                                                <FileDown className="w-4 h-4 mr-2" />
+                                                {loading ? 'Generating PDF...' : 'Download Report'}
+                                            </motion.button>
+                                        )}
+                                    </PDFDownloadLink>
+                                )}
+                                <motion.button
+                                    className="bg-blue-600 text-white font-bold py-2.5 px-5 rounded-lg shadow-md hover:bg-blue-700 transform hover:-translate-y-0.5 transition flex items-center justify-center text-sm"
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                >
+                                    <AlertTriangle className="w-4 h-4 mr-2" />
+                                    Fix Critical Issues
+                                </motion.button>
+                            </div>
                         </div>
+                    </motion.section>
 
-                        {/* Fix Critical Issues Button */}
-                        <div className="flex-shrink-0 flex space-x-2">
-                             {/* New Download PDF button */}
-                             <motion.button
-                                onClick={handleDownloadPdf}
-                                disabled={isDownloading}
-                                className={`py-2.5 px-5 rounded-lg shadow-md font-bold text-sm flex items-center justify-center transition-colors duration-200
-                                            ${isDownloading 
-                                                ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
-                                                : 'bg-blue-600 text-white hover:bg-blue-700'}`
-                                            }
-                                whileHover={{ scale: isDownloading ? 1 : 1.02 }}
-                                whileTap={{ scale: isDownloading ? 1 : 0.98 }}
-                            >
-                                <FileDown className="w-4 h-4 mr-2" />
-                                {isDownloading ? 'Generating PDF...' : 'Download Report'}
-                            </motion.button>
-                            <motion.button
-                                className="bg-blue-600 text-white font-bold py-2.5 px-5 rounded-lg shadow-md hover:bg-blue-700 transform hover:-translate-y-0.5 transition flex items-center justify-center text-sm"
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                            >
-                                <AlertTriangle className="w-4 h-4 mr-2" />
-                                Fix Critical Issues
-                            </motion.button>
-                        </div>
-                    </div>
-                </motion.section>
-
-                {/* Render individual ReportCards based on active tab */}
-                {/* We'll wrap this section in a ref to capture the content for the PDF */}
-                <section ref={reportRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 print:block">
-                    {groupedSections?.[activeTab]?.map((section) => (
-                        <ReportCard
-                            key={section.id}
-                            title={section.title}
-                            status={section.status}
-                            explanation={section.explanation}
-                            action={section.action}
-                            onOpenKeywordsModal={section.id === 'content-analysis' ? handleOpenKeywordsModal : null}
-                            contentAnalysisData={section.id === 'content-analysis' ? backendData.content_analysis : null}
-                            onOpenHeadingsModal={section.id === 'heading-structure' ? handleOpenHeadingsModal : null}
-                            headingCounts={section.id === 'heading-structure' ? section.headingCounts : null}
-                            headingOrder={section.id === 'heading-structure' ? section.headingOrder : null}
-                            headingIssues={section.id === 'heading-structure' ? section.headingIssues : null}
-                            speedAuditData={section.id === 'speed-heuristics' ? backendData.speed_audit : null}
-                            sitemapData={section.id === 'sitemap-validator' ? backendData.sitemap : null}
-                            linkAuditData={section.id === 'link-audit' ? backendData.link_audit : null}
-                            onOpenBrokenLinksModal={section.id === 'link-audit' ? handleOpenBrokenLinksModal : null}
-                            ogTwitterData={section.id === 'social-meta-preview' ? backendData.og_twitter_audit : null}
-                            mobileResponsivenessData={section.id === 'mobile-responsiveness-audit' ? backendData.mobile_responsiveness_audit : null}
-                            onOpenFixedWidthElementsModal={section.id === 'mobile-responsiveness-audit' ? handleOpenFixedWidthElementsModal : null}
-                            onOpenResponsivenessIssuesModal={section.id === 'mobile-responsiveness-audit' ? handleOpenResponsivenessIssuesModal : null}
-                            structuredDataAuditData={section.id === 'structured-data-schema' ? backendData.structured_data_audit : null}
-                            localSeoAuditData={section.id === 'local-seo-audit' ? backendData.local_seo_audit : null}
-                            metadataLengthData={section.metadataLengthData}
-                            overallScore={overallScore}
-                        />
-                    ))}
-                </section>
+                    <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {groupedSections?.[activeTab]?.map((section) => (
+                            <ReportCard
+                                key={section.id}
+                                title={section.title}
+                                status={section.status}
+                                explanation={section.explanation}
+                                action={section.action}
+                                onOpenKeywordsModal={section.id === 'content-analysis' ? handleOpenKeywordsModal : null}
+                                contentAnalysisData={section.id === 'content-analysis' ? backendData.content_analysis : null}
+                                onOpenHeadingsModal={section.id === 'heading-structure' ? handleOpenHeadingsModal : null}
+                                headingCounts={section.id === 'heading-structure' ? section.headingCounts : null}
+                                headingOrder={section.id === 'heading-structure' ? section.headingOrder : null}
+                                headingIssues={section.id === 'heading-structure' ? section.headingIssues : null}
+                                speedAuditData={section.id === 'speed-heuristics' ? backendData.speed_audit : null}
+                                sitemapData={section.id === 'sitemap-validator' ? backendData.sitemap : null}
+                                linkAuditData={section.id === 'link-audit' ? backendData.link_audit : null}
+                                onOpenBrokenLinksModal={section.id === 'link-audit' ? handleOpenBrokenLinksModal : null}
+                                ogTwitterData={section.id === 'social-meta-preview' ? backendData.og_twitter_audit : null}
+                                mobileResponsivenessData={section.id === 'mobile-responsiveness-audit' ? backendData.mobile_responsiveness_audit : null}
+                                onOpenFixedWidthElementsModal={section.id === 'mobile-responsiveness-audit' ? handleOpenFixedWidthElementsModal : null}
+                                onOpenResponsivenessIssuesModal={section.id === 'mobile-responsiveness-audit' ? handleOpenResponsivenessIssuesModal : null}
+                                structuredDataAuditData={section.id === 'structured-data-schema' ? backendData.structured_data_audit : null}
+                                localSeoAuditData={section.id === 'local-seo-audit' ? backendData.local_seo_audit : null}
+                                metadataLengthData={section.metadataLengthData}
+                                overallScore={overallScore}
+                            />
+                        ))}
+                    </section>
+                </div>
             </main>
 
             <AppModals
@@ -1257,10 +1149,10 @@ const Report = () => {
                 brokenLinksData={brokenLinksModalData}
                 showFixedWidthElementsModal={showFixedWidthElementsModal}
                 setShowFixedWidthElementsModal={setShowFixedWidthElementsModal}
-                fixedWidthElementsData={fixedWidthElementsModalData}
+                fixedWidthElementsModalData={fixedWidthElementsModalData}
                 showResponsivenessIssuesModal={showResponsivenessIssuesModal}
                 setShowResponsivenessIssuesModal={setShowResponsivenessIssuesModal}
-                responsivenessIssuesData={responsivenessIssuesModalData}
+                responsivenessIssuesModalData={responsivenessIssuesModalData}
             />
 
             <Footer />
