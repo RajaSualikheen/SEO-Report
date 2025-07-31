@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -10,11 +10,48 @@ import {
 import Navbar from "../components/navbar.jsx";
 import Footer from "../components/footer.jsx";
 
+// --- NEW: Firebase Imports and Configuration ---
+import { initializeApp } from "firebase/app";
+import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyCiYeMcuPhdQDop6Umt2K10ulyAEhbN108",
+    authDomain: "seoanalyzerauth.firebaseapp.com",
+    projectId: "seoanalyzerauth",
+    storageBucket: "seoanalyzerauth.firebasestorage.app",
+    messagingSenderId: "512042912695",
+    appId: "1:512042912695:web:54fce8a18bdcec2ff73632",
+    measurementId: "G-6W2LCZKH66"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+// --- END OF NEW IMPORTS ---
+
 const Landing = () => {
     const [url, setUrl] = useState("");
     const [loading, setLoading] = useState(false);
     const [showDemoResults, setShowDemoResults] = useState(false);
+    const [currentUser, setCurrentUser] = useState(null); // NEW: State to hold the current user
     const navigate = useNavigate();
+
+    // NEW: Effect to listen for authentication state changes
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            setCurrentUser(user);
+        });
+        return () => unsubscribe(); // Cleanup the listener on component unmount
+    }, []);
+
+    // NEW: Logout handler to pass to the Navbar
+    const handleLogout = async () => {
+        try {
+            await signOut(auth);
+            navigate("/");
+        } catch (error) {
+            console.error("Logout failed:", error);
+            // Optionally, show an error message to the user
+        }
+    };
 
     const demoReportPreview = {
         overallScore: 82,
@@ -88,7 +125,8 @@ const Landing = () => {
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-500 overflow-hidden">
-            <Navbar />
+            {/* NEW: Pass the currentUser and handleLogout to the Navbar */}
+            <Navbar user={currentUser} handleLogout={handleLogout} />
 
             {/* Hero Section (Ultimate Premium Redesign) */}
             <header className="relative pt-24 pb-48 px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-center text-center overflow-hidden min-h-[750px] md:min-h-[850px] lg:min-h-[900px] bg-gradient-to-br from-gray-900 to-black dark:from-gray-950 dark:to-black-900">
@@ -165,7 +203,7 @@ const Landing = () => {
                     variants={fadeIn}
                 >
                     <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold text-white leading-tight mb-7 drop-shadow-3xl tracking-tight lg:tracking-tighter">
-                         <motion.span
+                        <motion.span
                             initial={{ x: -20, opacity: 0 }}
                             animate={{ x: 0, opacity: 1 }}
                             transition={{ duration: 0.8, delay: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
@@ -173,7 +211,7 @@ const Landing = () => {
                         >
                             AI-Powered SEO Mastery
                         </motion.span> <br />
-                         <motion.span
+                        <motion.span
                             initial={{ x: 20, opacity: 0 }}
                             animate={{ x: 0, opacity: 1 }}
                             transition={{ duration: 0.8, delay: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
@@ -203,7 +241,7 @@ const Landing = () => {
                             whileTap={{ scale: 0.97 }}
                             disabled={loading}
                         >
-                             <span className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity duration-200" />
+                            <span className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity duration-200" />
                             {loading ? (
                                 <>
                                     <svg className="animate-spin h-6 w-6 text-white" viewBox="0 0 24 24">
@@ -366,7 +404,7 @@ const Landing = () => {
                                 <h3 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-3 relative z-10">
                                     {feature.title}
                                 </h3>
-                                <p className="text-gray-600 dark:text-gray-400 text-base relative z-10">
+                                <p className="text-gray-600 dark:text-gray-400 max-w-xs text-base relative z-10">
                                     {feature.description}
                                 </p>
                             </motion.div>
