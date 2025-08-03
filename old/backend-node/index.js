@@ -1,8 +1,10 @@
 // backend/index.js
 
-const express = require("express");
-const cors = require("cors");
-const seoReportRouter = require("./routes/seoReport.js");
+import 'dotenv/config'; // Correct way to load .env in ES Module scope
+
+import express from "express";
+import cors from "cors";
+import seoReportRouter from "./routes/seoReport.js";
 
 const app = express();
 

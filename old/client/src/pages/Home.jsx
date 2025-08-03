@@ -2,17 +2,17 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-    Search, FileText, Code, Lightbulb, ShieldCheck, Link, Smartphone, Zap, MapPin,
-    ArrowRight, PlayCircle, Star, DollarSign, CheckCircle, XCircle, BarChart2, ExternalLink,
-    Maximize, TrendingUp, Cpu, Users, Layers, Cloud, Globe, Target
+    Search, BarChart3, Zap, Shield, Globe, TrendingUp, 
+    CheckCircle, Star, ArrowRight, Play, X,
+    Target
 } from "lucide-react";
+
+// --- Firebase Imports ---
+import { initializeApp } from "firebase/app";
+import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
 
 import Navbar from "../components/navbar.jsx";
 import Footer from "../components/footer.jsx";
-
-// --- NEW: Firebase Imports and Configuration ---
-import { initializeApp } from "firebase/app";
-import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
 
 const firebaseConfig = {
     apiKey: "AIzaSyCiYeMcuPhdQDop6Umt2K10ulyAEhbN108",
@@ -25,31 +25,27 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-// --- END OF NEW IMPORTS ---
 
-const Landing = () => {
+const Home = () => {
     const [url, setUrl] = useState("");
     const [loading, setLoading] = useState(false);
     const [showDemoResults, setShowDemoResults] = useState(false);
-    const [currentUser, setCurrentUser] = useState(null); // NEW: State to hold the current user
+    const [currentUser, setCurrentUser] = useState(null);
     const navigate = useNavigate();
 
-    // NEW: Effect to listen for authentication state changes
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             setCurrentUser(user);
         });
-        return () => unsubscribe(); // Cleanup the listener on component unmount
+        return () => unsubscribe();
     }, []);
 
-    // NEW: Logout handler to pass to the Navbar
     const handleLogout = async () => {
         try {
             await signOut(auth);
             navigate("/");
         } catch (error) {
             console.error("Logout failed:", error);
-            // Optionally, show an error message to the user
         }
     };
 
@@ -69,13 +65,10 @@ const Landing = () => {
             alert("Please enter a valid URL");
             return;
         }
-
         setLoading(true);
         setTimeout(() => {
             setLoading(false);
-            navigate("/report", {
-                state: { websiteUrl: url.trim() },
-            });
+            navigate("/report", { state: { websiteUrl: url.trim() } });
         }, 2500);
     };
 
@@ -83,10 +76,9 @@ const Landing = () => {
         setShowDemoResults(true);
     };
 
-    // Framer Motion variants
-    const fadeIn = {
-        hidden: { opacity: 0, y: 30 },
-        visible: { opacity: 1, y: 0, transition: { duration: 0.9, ease: [0.25, 0.46, 0.45, 0.94] } },
+    const fadeInUp = {
+        hidden: { opacity: 0, y: 60 },
+        visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: [0.25, 0.1, 0.25, 1] } }
     };
 
     const staggerContainer = {
@@ -94,589 +86,779 @@ const Landing = () => {
         visible: {
             opacity: 1,
             transition: {
-                staggerChildren: 0.2,
-                delayChildren: 0.3
-            },
-        },
-    };
-
-    const itemSlideUp = {
-        hidden: { opacity: 0, y: 50 },
-        visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] } },
-    };
-
-    const gradientShift = {
-        animate: {
-            backgroundPosition: ['0% 0%', '100% 100%'],
-            transition: {
-                duration: 40,
-                repeat: Infinity,
-                ease: "linear",
-                repeatType: "mirror"
+                staggerChildren: 0.1,
+                delayChildren: 0.2
             }
         }
     };
 
-    // Data for generating bubbles
-    const numberOfBubbles = 40; // Increased for a denser, more ethereal look
-    const bubbleSizes = [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60]; // Wider range for depth
-    const bubbleColors = ['bg-blue-300', 'bg-purple-300', 'bg-blue-500', 'bg-purple-500', 'bg-white']; // Added white for contrast/lightness
-
+    const floatingAnimation = {
+        animate: {
+            y: [0, -10, 0],
+            transition: {
+                duration: 3,
+                repeat: Infinity,
+                ease: "easeInOut"
+            }
+        }
+    };
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-500 overflow-hidden">
-            {/* NEW: Pass the currentUser and handleLogout to the Navbar */}
+        <div className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-purple-50 overflow-hidden relative">
+            {/* Elegant SVG Background Decorations */}
+            <div className="absolute inset-0 overflow-hidden">
+                <svg className="absolute -bottom-40 -left-40 w-[600px] h-[600px] opacity-10" viewBox="0 0 500 500">
+                    <defs>
+                        <linearGradient id="geo1" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="#3b82f6" />
+                            <stop offset="50%" stopColor="#8b5cf6" />
+                            <stop offset="100%" stopColor="#06b6d4" />
+                        </linearGradient>
+                        <pattern id="hexPattern" x="0" y="0" width="60" height="60" patternUnits="userSpaceOnUse">
+                            <polygon points="30,5 50,20 50,40 30,55 10,40 10,20" fill="none" stroke="url(#geo1)" strokeWidth="1"/>
+                        </pattern>
+                    </defs>
+                    <rect width="500" height="500" fill="url(#hexPattern)" opacity="0.4"/>
+                    <g fill="url(#geo1)" opacity="0.1">
+                        <polygon points="250,100 300,130 300,190 250,220 200,190 200,130"/>
+                        <polygon points="250,200 300,230 300,290 250,320 200,290 200,230"/>
+                    </g>
+                </svg>
+                <motion.svg 
+                    className="absolute top-20 left-1/4 w-12 h-12 opacity-20"
+                    viewBox="0 0 50 50"
+                    variants={floatingAnimation}
+                    animate="animate"
+                >
+                    <defs>
+                        <linearGradient id="shard1" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="#3b82f6" />
+                            <stop offset="100%" stopColor="#8b5cf6" />
+                        </linearGradient>
+                    </defs>
+                    <polygon points="25,5 40,20 25,35 10,20" fill="url(#shard1)"/>
+                </motion.svg>
+                <motion.svg 
+                    className="absolute top-1/3 right-1/3 w-8 h-8 opacity-15"
+                    viewBox="0 0 50 50"
+                    variants={floatingAnimation}
+                    animate="animate"
+                    transition={{ delay: 1.5 }}
+                >
+                    <defs>
+                        <linearGradient id="shard2" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="#06b6d4" />
+                            <stop offset="100%" stopColor="#3b82f6" />
+                        </linearGradient>
+                    </defs>
+                    <polygon points="25,10 35,25 25,40 15,25" fill="url(#shard2)"/>
+                </motion.svg>
+                <svg className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] opacity-5" viewBox="0 0 800 400">
+                    <defs>
+                        <linearGradient id="wave2" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stopColor="#3b82f6" />
+                            <stop offset="50%" stopColor="#8b5cf6" />
+                            <stop offset="100%" stopColor="#06b6d4" />
+                        </linearGradient>
+                    </defs>
+                    <path d="M0,200 Q200,100 400,200 T800,200" stroke="url(#wave2)" strokeWidth="2" fill="none" opacity="0.8"/>
+                    <path d="M0,180 Q200,80 400,180 T800,180" stroke="url(#wave2)" strokeWidth="1.5" fill="none" opacity="0.6"/>
+                </svg>
+                <motion.div 
+                    className="absolute top-1/5 right-1/5 w-2 h-2 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full opacity-30"
+                    variants={floatingAnimation}
+                    animate="animate"
+                    transition={{ delay: 2.2 }}
+                />
+                <motion.div 
+                    className="absolute top-2/3 left-1/4 w-3 h-3 bg-gradient-to-r from-cyan-400 to-blue-400 rounded-full opacity-20"
+                    variants={floatingAnimation}
+                    animate="animate"
+                    transition={{ delay: 1.8 }}
+                />
+            </div>
+
             <Navbar user={currentUser} handleLogout={handleLogout} />
 
-            {/* Hero Section (Ultimate Premium Redesign) */}
-            <header className="relative pt-24 pb-48 px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-center text-center overflow-hidden min-h-[750px] md:min-h-[850px] lg:min-h-[900px] bg-gradient-to-br from-gray-900 to-black dark:from-gray-950 dark:to-black-900">
-                {/* Background Layer 1: Deep, Shifting Gradient Background */}
-                <motion.div
-                    className="absolute inset-0 z-0"
+            {/* Hero Section */}
+            <motion.section 
+                className="relative z-10 py-20 px-4 sm:px-6 lg:px-8"
+                initial="hidden"
+                animate="visible"
+                variants={staggerContainer}
+            >
+                <div className="max-w-7xl mx-auto text-center">
+                    <motion.div variants={fadeInUp} className="inline-flex items-center px-4 py-2 bg-blue-100 rounded-full text-blue-700 font-medium mb-6">
+                        <Star className="w-4 h-4 mr-2" />
+                        Trusted by thousands of websites worldwide
+                    </motion.div>
+                    <motion.h1 
+                        variants={fadeInUp}
+                        className="text-4xl md:text-5xl font-bold text-slate-900 mb-6 leading-tight"
+                    >
+                        Unlock Your Website's
+                        <span className="block bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 bg-clip-text text-transparent">
+                            SEO Potential
+                        </span>
+                    </motion.h1>
+                    <motion.p 
+                        variants={fadeInUp}
+                        className="text-xl text-slate-600 mb-10 max-w-3xl mx-auto leading-relaxed"
+                    >
+                        Unleash the full potential of your website with deep analytics, actionable strategies, and real-time performance insights.
+                    </motion.p>
+                    <motion.div 
+                        variants={fadeInUp}
+                        className="max-w-3xl mx-auto mb-10"
+                    >
+                        <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-xl border border-white/50">
+                            <div className="flex flex-col md:flex-row gap-4">
+                                <div className="flex-1 relative">
+                                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+                                    <input
+                                        type="url"
+                                        placeholder="Enter your website URL (e.g., https://yourbrand.com)"
+                                        value={url}
+                                        onChange={(e) => setUrl(e.target.value)}
+                                        className="w-full pl-12 pr-4 py-4 bg-white/90 border border-slate-200 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg"
+                                        aria-label="Website URL input"
+                                    />
+                                </div>
+                                <motion.button
+                                    onClick={handleGenerateReport}
+                                    disabled={loading}
+                                    className="px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:shadow-xl transform hover:-translate-y-1 transition-all text-lg flex items-center justify-center space-x-2 disabled:opacity-50"
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                >
+                                    {loading ? (
+                                        <>
+                                            <div className="animate-spin w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />
+                                            <span>Analyzing...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span>Initiate Deep Scan</span>
+                                            <ArrowRight className="w-5 h-5" />
+                                        </>
+                                    )}
+                                </motion.button>
+                            </div>
+                            <p className="text-sm text-slate-500 mt-4 text-center">
+                                Free analysis • No signup required • Instant results
+                            </p>
+                        </div>
+                    </motion.div>
+                    <motion.div variants={fadeInUp}>
+                        <button
+                            onClick={handleRunDemoAudit}
+                            className="inline-flex items-center space-x-2 text-blue-600 font-semibold hover:text-blue-700 transition-colors"
+                            aria-label="Run demo audit"
+                        >
+                            <Play className="w-5 h-5" />
+                            <span>Run Demo Audit for example.com</span>
+                        </button>
+                    </motion.div>
+                </div>
+            </motion.section>
+
+            {/* Demo Results Modal */}
+            {showDemoResults && (
+                <motion.div 
+                    className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ duration: 1.5 }}
-                    style={{
-                        background: `radial-gradient(circle at 10% 20%, rgba(26,32,44,0.8), transparent),
-                                     radial-gradient(circle at 90% 80%, rgba(74,0,224,0.4), transparent),
-                                     radial-gradient(circle at 50% 10%, rgba(59,130,246,0.2), transparent)`,
-                        backgroundBlendMode: 'screen',
-                        backgroundSize: '200% 200%'
-                    }}
-                    variants={gradientShift}
-                    animate="animate"
-                />
-
-                {/* Background Layer 2: Animated Bubbles (Enhanced) */}
-                <div className="absolute inset-0 z-10 pointer-events-none">
-                    {Array.from({ length: numberOfBubbles }).map((_, i) => {
-                        const size = bubbleSizes[Math.floor(Math.random() * bubbleSizes.length)];
-                        const startX = Math.random() * 100; // %
-                        const duration = 20 + Math.random() * 20; // 20-40 seconds for slower movement
-                        const delay = Math.random() * 8; // 0-8 seconds delay
-                        const colorClass = bubbleColors[Math.floor(Math.random() * bubbleColors.length)];
-                        const opacityBase = 0.05 + Math.random() * 0.1; // Very low base opacity
-
-                        return (
-                            <motion.div
-                                key={i}
-                                className={`absolute rounded-full ${colorClass}`}
-                                style={{
-                                    width: size,
-                                    height: size,
-                                    left: `${startX}%`,
-                                    bottom: `-${size}px`, // Start just below screen
-                                    filter: `blur(${size / 15}px)`, // More subtle blur for smaller ones, more for larger
-                                    opacity: opacityBase // Initial base opacity
-                                }}
-                                initial={{ y: 0, x: 0, opacity: 0 }} // Start invisible
-                                animate={{
-                                    y: [`0vh`, `-120vh`], // Move upwards past screen
-                                    x: [`${startX}%`, `${startX + (Math.random() - 0.5) * 30}%`], // More horizontal drift
-                                    scale: [1, 1 + Math.random() * 0.3, 1], // More pronounced but soft pulse
-                                    opacity: [0, opacityBase + Math.random() * 0.1, opacityBase + Math.random() * 0.05, 0], // Complex opacity animation for fade-in, sustain, fade-out
-                                }}
-                                transition={{
-                                    duration: duration,
-                                    ease: "linear", // Constant speed for main float
-                                    repeat: Infinity,
-                                    delay: delay,
-                                }}
-                            />
-                        );
-                    })}
-                </div>
-
-                {/* Layer 3: Floating, Blurred Orbs/Glows (More subtle) - these now sit ABOVE bubbles for more visual depth */}
-                <motion.div
-                    className="absolute -top-40 -left-40 w-96 h-96 bg-blue-600 rounded-full mix-blend-screen filter blur-3xl opacity-10 animate-subtle-float animation-delay-0"
-                />
-                <motion.div
-                    className="absolute -bottom-40 -right-40 w-80 h-80 bg-purple-600 rounded-full mix-blend-screen filter blur-3xl opacity-10 animate-subtle-float animation-delay-3000"
-                />
-
-                {/* Main Content (z-index increased for prominence) */}
-                <motion.div
-                    className="relative z-30 flex flex-col items-center max-w-6xl px-4 py-12"
-                    initial="hidden"
-                    animate="visible"
-                    variants={fadeIn}
+                    onClick={() => setShowDemoResults(false)}
                 >
-                    <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold text-white leading-tight mb-7 drop-shadow-3xl tracking-tight lg:tracking-tighter">
-                        <motion.span
-                            initial={{ x: -20, opacity: 0 }}
-                            animate={{ x: 0, opacity: 1 }}
-                            transition={{ duration: 0.8, delay: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
-                            className="inline-block bg-clip-text text-transparent bg-gradient-to-r from-blue-300 to-purple-300"
-                        >
-                            AI-Powered SEO Mastery
-                        </motion.span> <br />
-                        <motion.span
-                            initial={{ x: 20, opacity: 0 }}
-                            animate={{ x: 0, opacity: 1 }}
-                            transition={{ duration: 0.8, delay: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
-                            className="inline-block text-white"
-                        >
-                            Elevate Your Digital Presence.
-                        </motion.span>
-                    </h1>
-                    <p className="text-xl sm:text-2xl lg:text-2xl text-blue-100 opacity-90 mb-14 max-w-4xl font-light leading-relaxed drop-shadow-lg tracking-wide">
-                        Unleash the full potential of your website with deep analytics, actionable strategies, and real-time performance insights.
-                    </p>
-
-                    {/* Input & Button Container (Premium Frosted Glass) */}
-                    <div className="w-full max-w-3xl flex flex-col sm:flex-row items-center space-y-6 sm:space-y-0 sm:space-x-6 backdrop-filter backdrop-blur-xl bg-white/5 dark:bg-gray-800/10 p-6 rounded-3xl shadow-4xl border border-white/10 dark:border-gray-700/20">
-                        <input
-                            type="url"
-                            placeholder="Enter your website URL (e.g., https://yourbrand.com)"
-                            value={url}
-                            onChange={(e) => setUrl(e.target.value)}
-                            className="flex-grow p-4 md:p-5 bg-white/5 dark:bg-gray-700/10 text-white placeholder-blue-100 dark:placeholder-gray-400 rounded-xl shadow-inner focus:ring-4 focus:ring-blue-300 focus:border-transparent transition duration-300 w-full text-lg outline-none backdrop-blur-sm border border-white/5 dark:border-gray-700/5"
-                            aria-label="Website URL input"
-                        />
-                        <motion.button
-                            onClick={handleGenerateReport}
-                            className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-extrabold py-4 md:py-5 px-10 rounded-xl shadow-2xl hover:shadow-3xl transform hover:-translate-y-1 transition duration-300 ease-in-out text-xl w-full sm:w-auto flex items-center justify-center space-x-3 group relative overflow-hidden focus:outline-none focus:ring-4 focus:ring-blue-300"
-                            whileHover={{ scale: 1.03, boxShadow: "0 10px 20px rgba(0,0,0,0.4)" }}
-                            whileTap={{ scale: 0.97 }}
-                            disabled={loading}
-                        >
-                            <span className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity duration-200" />
-                            {loading ? (
-                                <>
-                                    <svg className="animate-spin h-6 w-6 text-white" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    Analyzing...
-                                </>
-                            ) : (
-                                <>
-                                    <span>Initiate Deep Scan</span>
-                                    <ArrowRight className="w-6 h-6 ml-3 transition-transform group-hover:translate-x-1" />
-                                </>
-                            )}
-                        </motion.button>
-                    </div>
-                    {loading && <p className="mt-10 text-white font-medium text-lg opacity-90 drop-shadow-md">Processing cutting-edge SEO metrics...</p>}
-                </motion.div>
-            </header>
-
-            {/* Rest of the Landing.jsx content (Live Demo, Features, How it Works, Testimonials, Pricing, Final CTA) */}
-            <section className="py-24 px-4 sm:px-6 lg:px-8 bg-gray-50 dark:bg-gray-900 transition-colors duration-500">
-                <motion.div
-                    className="container mx-auto text-center"
-                    initial="hidden"
-                    whileInView="visible"
-                    viewport={{ once: true, amount: 0.3 }}
-                    variants={fadeIn}
-                >
-                    <h2 className="text-4xl sm:text-5xl font-extrabold text-gray-900 dark:text-gray-100 mb-6 leading-tight">
-                        Experience the Power: Instant Preview
-                    </h2>
-                    <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-400 mb-12 max-w-4xl mx-auto">
-                        Run a quick, anonymized audit on a sample domain and see the depth of analysis you'll unlock.
-                    </p>
-
-                    <motion.button
-                        onClick={handleRunDemoAudit}
-                        className="bg-gradient-to-r from-blue-600 to-purple-700 text-white font-bold py-3.5 px-10 rounded-full shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition duration-300 ease-in-out text-lg flex items-center justify-center mx-auto mb-12 group"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                    <motion.div 
+                        className="bg-white rounded-2xl p-6 max-w-4xl w-full max-h-[80vh] overflow-y-auto"
+                        initial={{ scale: 0.9, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        onClick={(e) => e.stopPropagation()}
                     >
-                        <PlayCircle className="w-5 h-5 mr-3 transition-transform group-hover:scale-110" />
-                        Run Demo Audit for example.com
-                        <ArrowRight className="w-5 h-5 ml-3 transition-transform group-hover:translate-x-1" />
-                    </motion.button>
-
-                    {showDemoResults && (
-                        <motion.div
-                            className="bg-white dark:bg-gray-950 p-8 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 max-w-5xl mx-auto overflow-hidden relative"
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 0.8, delay: 0.2 }}
-                        >
-                            <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6 text-left">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-2xl font-bold text-slate-900">
                                 Audit Snapshot for <a href="https://example.com" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">example.com</a>
                             </h3>
-                            <div className="flex flex-col md:flex-row items-center justify-around space-y-8 md:space-y-0 md:space-x-12">
-                                {/* Overall Score Circular Progress */}
-                                <div className="relative w-40 h-40 md:w-48 md:h-48 flex-shrink-0">
-                                    <Circle
-                                        percent={demoReportPreview.overallScore}
-                                        strokeWidth={10}
-                                        strokeColor="#3b82f6"
-                                        trailColor="#e0e0e0"
-                                        trailWidth={8}
-                                        strokeLinecap="round"
-                                    />
-                                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
-                                        <span className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-gray-100">{demoReportPreview.overallScore}</span>
-                                        <p className="text-sm md:text-base text-gray-500 dark:text-gray-400 mt-2">Overall Score</p>
-                                    </div>
+                            <button 
+                                onClick={() => setShowDemoResults(false)}
+                                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                                aria-label="Close modal"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-xl border border-green-200">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h4 className="font-semibold text-slate-800">Overall Score</h4>
+                                    <div className="text-3xl font-bold text-green-600">{demoReportPreview.overallScore}/100</div>
                                 </div>
-
-                                {/* Category Breakdown Bars (Mini Version) */}
-                                <div className="w-full md:flex-grow space-y-3">
+                                <div className="w-full bg-green-200 rounded-full h-2">
+                                    <motion.div 
+                                        className="bg-green-500 h-2 rounded-full"
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${demoReportPreview.overallScore}%` }}
+                                        transition={{ duration: 0.6 }}
+                                    />
+                                </div>
+                            </div>
+                            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-6 rounded-xl border border-blue-200">
+                                <h4 className="font-semibold text-slate-800 mb-4">Category Breakdown</h4>
+                                <div className="space-y-3">
                                     {Object.entries(demoReportPreview.categoryScores).map(([categoryName, data]) => (
-                                        <div key={categoryName} className="flex items-center space-x-3">
-                                            <span className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: data.percentage >= 80 ? '#22C55E' : data.percentage >= 60 ? '#F97316' : '#EF4444' }}></span>
-                                            <span className="flex-grow text-base font-medium text-gray-700 dark:text-gray-300 text-left">{categoryName}</span>
-                                            <div className="relative w-32 bg-gray-200 rounded-full h-3 dark:bg-gray-700">
-                                                <motion.div
-                                                    className="h-3 rounded-full"
-                                                    style={{
-                                                        width: `${data.percentage}%`,
-                                                        backgroundColor: data.percentage >= 80 ? '#22C55E' : data.percentage >= 60 ? '#F97316' : '#EF4444',
-                                                    }}
-                                                    initial={{ width: 0 }}
-                                                    animate={{ width: `${data.percentage}%` }}
-                                                    transition={{ duration: 0.6, delay: 0.3 }}
-                                                />
-                                            </div>
-                                            <span className="w-12 text-right text-xs font-medium text-gray-600 dark:text-gray-400">
+                                        <div key={categoryName} className="flex justify-between">
+                                            <span className="text-slate-600">{categoryName}</span>
+                                            <span className="font-semibold" style={{ color: data.percentage >= 80 ? '#22C55E' : data.percentage >= 60 ? '#F97316' : '#EF4444' }}>
                                                 {data.score}/{data.max}
                                             </span>
                                         </div>
                                     ))}
                                 </div>
                             </div>
-                            <div className="mt-10 text-center">
-                                <p className="text-lg text-gray-700 dark:text-gray-300 mb-6 max-w-2xl mx-auto">
-                                    This glimpse reveals your site's potential. Unlock comprehensive data, actionable steps, and advanced features with a full audit.
-                                </p>
-                                <motion.button
-                                    onClick={() => navigate("/signup")}
-                                    className="bg-purple-600 text-white font-bold py-3.5 px-10 rounded-full shadow-lg hover:bg-purple-700 transform hover:-translate-y-1 transition duration-300 ease-in-out text-lg group"
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                >
-                                    Get Your Personalized Free Audit
-                                    <ArrowRight className="w-5 h-5 ml-3 transition-transform group-hover:translate-x-1" />
-                                </motion.button>
-                            </div>
-                        </motion.div>
-                    )}
+                        </div>
+                        <div className="mt-8 text-center">
+                            <motion.button
+                                onClick={() => navigate("/signup")}
+                                className="px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:shadow-lg transform hover:-translate-y-1 transition-all"
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                            >
+                                Get Your Personalized Free Audit
+                            </motion.button>
+                        </div>
+                    </motion.div>
                 </motion.div>
-            </section>
+            )}
 
-            {/* Visual Feature Grid */}
-            <section className="py-24 px-4 sm:px-6 lg:px-8 bg-gray-100 dark:bg-gray-900 transition-colors duration-500">
-                <motion.div
-                    className="container mx-auto text-center"
-                    initial="hidden"
-                    whileInView="visible"
-                    viewport={{ once: true, amount: 0.3 }}
-                    variants={fadeIn}
-                >
-                    <h2 className="text-4xl sm:text-5xl font-extrabold text-gray-900 dark:text-gray-100 mb-6 leading-tight">
-                        Comprehensive Toolset for Every SEO Need
-                    </h2>
-                    <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-400 mb-12 max-w-4xl mx-auto">
-                        From technical deep dives to content optimization, CrestNova.Sol provides the clarity you need to succeed.
-                    </p>
-
-                    <motion.div
-                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8"
-                        variants={staggerContainer}
-                    >
+            {/* Features Section */}
+            <motion.section 
+                id="features"
+                className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-white to-blue-50"
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, amount: 0.2 }}
+                variants={staggerContainer}
+            >
+                <div className="max-w-7xl mx-auto">
+                    <motion.div variants={fadeInUp} className="text-center mb-12">
+                        <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6">
+                            Everything You Need for
+                            <span className="block text-blue-600">SEO Success</span>
+                        </h2>
+                        <p className="text-xl text-slate-600 max-w-3xl mx-auto">
+                            From technical deep dives to content optimization, CrestNova.Sol provides the clarity you need to succeed.
+                        </p>
+                    </motion.div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {[
-                            { icon: BarChart2, title: "Deep Site Audit", description: "Comprehensive analysis of your website's SEO health with actionable reports." },
-                            { icon: TrendingUp, title: "Advanced Keyword Insights", description: "Uncover high-potential keywords and analyze competitive landscape with precision." },
-                            { icon: Cpu, title: "Technical SEO Mastery", description: "Diagnose and fix critical technical issues affecting crawlability and indexing." },
-                            { icon: Smartphone, title: "Mobile Experience Optimization", description: "Ensure seamless user experience and performance across all mobile devices." },
-                            { icon: ShieldCheck, title: "Robust Security Audit", description: "Verify HTTPS, robots.txt, and other security measures that impact SEO and trust." },
-                            { icon: MapPin, title: "Local SEO Dominance", description: "Optimize your presence for local searches with NAP data, schema, and map integrations." },
-                            { icon: Link, title: "Backlink Opportunities", description: "Analyze your link profile and identify opportunities to build high-quality backlinks." },
-                            { icon: Zap, title: "Performance Optimization", description: "Get actionable insights to reduce load times and improve overall site performance." },
+                            {
+                                icon: <BarChart3 className="w-8 h-8" />,
+                                title: "Deep Site Audit",
+                                description: "Comprehensive analysis of your website's SEO health with actionable reports.",
+                                color: "from-blue-500 to-cyan-500"
+                            },
+                            {
+                                icon: <TrendingUp className="w-8 h-8" />,
+                                title: "Advanced Keyword Insights",
+                                description: "Uncover high-potential keywords and analyze competitive landscape with precision.",
+                                color: "from-green-500 to-emerald-500"
+                            },
+                            {
+                                icon: <Zap className="w-8 h-8" />,
+                                title: "Performance Optimization",
+                                description: "Get actionable insights to reduce load times and improve overall site performance.",
+                                color: "from-yellow-500 to-orange-500"
+                            },
+                            {
+                                icon: <Shield className="w-8 h-8" />,
+                                title: "Robust Security Audit",
+                                description: "Verify HTTPS, robots.txt, and other security measures that impact SEO and trust.",
+                                color: "from-red-500 to-pink-500"
+                            },
+                            {
+                                icon: <Globe className="w-8 h-8" />,
+                                title: "Backlink Opportunities",
+                                description: "Analyze your link profile and identify opportunities to build high-quality backlinks.",
+                                color: "from-purple-500 to-indigo-500"
+                            },
+                            {
+                                icon: <Target className="w-8 h-8" />,
+                                title: "Local SEO Dominance",
+                                description: "Optimize your presence for local searches with NAP data, schema, and map integrations.",
+                                color: "from-teal-500 to-cyan-500"
+                            }
                         ].map((feature, index) => (
                             <motion.div
                                 key={index}
-                                className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg flex flex-col items-center text-center border border-gray-200 dark:border-gray-700 transform hover:scale-105 transition duration-300 ease-in-out group"
-                                variants={itemSlideUp}
-                                whileHover={{ y: -8, boxShadow: "0 15px 30px rgba(0,0,0,0.15)" }}
+                                variants={fadeInUp}
+                                className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-xl border border-white/50 hover:shadow-2xl transition-all duration-300 group"
+                                whileHover={{ y: -5 }}
                             >
-                                {/* Subtle background hover effect */}
-                                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl" />
-                                <div className="mb-4 p-4 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 group-hover:bg-blue-200 dark:group-hover:bg-blue-800 transition-colors relative z-10 shadow-md">
-                                    {React.createElement(feature.icon, { className: "w-9 h-9" })}
+                                <div className={`inline-flex p-3 rounded-xl bg-gradient-to-r ${feature.color} text-white mb-6 group-hover:scale-110 transition-transform`}>
+                                    {feature.icon}
                                 </div>
-                                <h3 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-3 relative z-10">
-                                    {feature.title}
-                                </h3>
-                                <p className="text-gray-600 dark:text-gray-400 max-w-xs text-base relative z-10">
-                                    {feature.description}
-                                </p>
-                            </motion.div>
-                        ))}
-                    </motion.div>
-                </motion.div>
-            </section>
-
-            {/* How it Works */}
-            <section className="py-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-gray-900 dark:to-gray-950 transition-colors duration-500">
-                <motion.div
-                    className="container mx-auto text-center"
-                    initial="hidden"
-                    whileInView="visible"
-                    viewport={{ once: true, amount: 0.3 }}
-                    variants={fadeIn}
-                >
-                    <h2 className="text-4xl sm:text-5xl font-extrabold text-gray-900 dark:text-gray-100 mb-12 leading-tight">
-                        Your Path to SEO Excellence in 3 Steps
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-                        {[
-                            { step: 1, title: "Analyze Your Site", description: "Effortlessly input your URL and let our intelligent algorithms scan every detail." },
-                            { step: 2, title: "Receive Actionable Insights", description: "Get a beautifully presented, comprehensive report with clear, prioritized recommendations." },
-                            { step: 3, title: "Optimize & Outrank", description: "Implement our expert guidance to fix issues, improve performance, and climb search rankings." },
-                        ].map((item, index) => (
-                            <motion.div
-                                key={index}
-                                className="flex flex-col items-center bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg relative overflow-hidden group"
-                                variants={itemSlideUp}
-                                whileHover={{ scale: 1.03, boxShadow: "0 10px 20px rgba(0,0,0,0.1)" }}
-                            >
-                                <span className="absolute top-0 left-0 w-full h-full bg-blue-500/10 dark:bg-blue-800/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                                <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-purple-600 text-white rounded-full flex items-center justify-center text-4xl font-extrabold mb-6 shadow-xl relative z-10">
-                                    {item.step}
-                                </div>
-                                <h3 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-3 relative z-10">
-                                    {item.title}
-                                </h3>
-                                <p className="text-gray-600 dark:text-gray-400 max-w-xs text-base relative z-10">
-                                    {item.description}
-                                </p>
+                                <h3 className="text-2xl font-bold text-slate-900 mb-4">{feature.title}</h3>
+                                <p className="text-slate-600 leading-relaxed">{feature.description}</p>
                             </motion.div>
                         ))}
                     </div>
-                </motion.div>
-            </section>
+                </div>
+            </motion.section>
 
-            {/* Screenshots Preview (Conceptual) */}
-            <section className="py-24 px-4 sm:px-6 lg:px-8 bg-gray-50 dark:bg-gray-900 transition-colors duration-500">
-                <motion.div
-                    className="container mx-auto text-center"
-                    initial="hidden"
-                    whileInView="visible"
-                    viewport={{ once: true, amount: 0.3 }}
-                    variants={fadeIn}
-                >
-                    <h2 className="text-4xl sm:text-5xl font-extrabold text-gray-900 dark:text-gray-100 mb-6 leading-tight">
-                        Your Data, Beautifully Presented
-                    </h2>
-                    <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-400 mb-12 max-w-4xl mx-auto">
-                        Access intuitive dashboards and crystal-clear visualizations to monitor your SEO progress with ease.
-                    </p>
-                    <motion.div
-                        className="bg-gray-100 dark:bg-gray-950 rounded-xl shadow-2xl p-6 md:p-10 border border-gray-200 dark:border-gray-800 relative overflow-hidden"
-                        initial={{ scale: 0.9, opacity: 0 }}
-                        whileInView={{ scale: 1, opacity: 1 }}
-                        viewport={{ once: true, amount: 0.2 }}
-                        transition={{ duration: 0.8, delay: 0.2 }}
+            {/* Stats Section */}
+            <motion.section 
+                className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-blue-50 to-purple-50 relative overflow-hidden"
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, amount: 0.3 }}
+                variants={staggerContainer}
+            >
+                <div className="absolute inset-0 opacity-10">
+                    <svg className="w-full h-full" viewBox="0 0 400 200" preserveAspectRatio="none">
+                        <defs>
+                            <linearGradient id="crystalBg" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.1" />
+                                <stop offset="50%" stopColor="#8b5cf6" stopOpacity="0.2" />
+                                <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.1" />
+                            </linearGradient>
+                        </defs>
+                        <polygon points="0,150 50,80 100,120 150,60 200,100 250,40 300,80 350,120 400,90" fill="url(#crystalBg)" opacity="0.3"/>
+                        <g fill="url(#crystalBg)" opacity="0.15">
+                            <polygon points="100,50 110,40 120,50 110,60" transform="rotate(45 110 50)"/>
+                        </g>
+                    </svg>
+                </div>
+                <div className="relative z-10 max-w-7xl mx-auto text-center">
+                    <motion.h2 
+                        variants={fadeInUp}
+                        className="text-4xl md:text-5xl font-bold text-slate-900 mb-12"
                     >
-                        {/* Mock Dashboard Image - Use a visually rich placeholder */}
-                        <img
-                            src="https://via.placeholder.com/1600x900/4a00e0/8e29e0?text=CrestNova.Sol+Dashboard+Preview"
-                            alt="SEO Dashboard Preview"
-                            className="rounded-lg shadow-xl w-full h-auto object-cover border border-gray-300 dark:border-gray-700"
-                        />
-                        {/* Animated overlay for effect */}
-                        <motion.div
-                            className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10 opacity-0"
-                            whileHover={{ opacity: 1 }}
-                            transition={{ duration: 0.3 }}
-                        />
-                    </motion.div>
+                        Trusted by Industry Leaders
+                    </motion.h2>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+                        {[
+                            { number: "50K+", label: "Websites Analyzed" },
+                            { number: "2.5M+", label: "Pages Crawled" },
+                            { number: "99.9%", label: "Uptime" },
+                            { number: "24/7", label: "Support" }
+                        ].map((stat, index) => (
+                            <motion.div 
+                                key={index} 
+                                variants={fadeInUp} 
+                                className="text-center"
+                            >
+                                <div className="text-4xl md:text-5xl font-bold text-slate-900 mb-2">{stat.number}</div>
+                                <div className="text-blue-600 text-lg">{stat.label}</div>
+                            </motion.div>
+                        ))}
+                    </div>
+                </div>
+                <motion.div 
+                    className="absolute top-20 right-10 w-10 h-10 opacity-20"
+                    variants={floatingAnimation}
+                    animate="animate"
+                >
+                    <svg viewBox="0 0 50 50">
+                        <defs>
+                            <linearGradient id="statShard" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stopColor="#3b82f6" />
+                                <stop offset="100%" stopColor="#8b5cf6" />
+                            </linearGradient>
+                        </defs>
+                        <polygon points="25,5 40,20 25,35 10,20" fill="url(#statShard)" />
+                    </svg>
                 </motion.div>
-            </section>
+            </motion.section>
 
             {/* Testimonials Section */}
-            <section className="py-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-blue-50 to-purple-100 dark:from-gray-950 dark:to-gray-900 transition-colors duration-500">
-                <motion.div
-                    className="container mx-auto text-center"
-                    initial="hidden"
-                    whileInView="visible"
-                    viewport={{ once: true, amount: 0.3 }}
-                    variants={fadeIn}
-                >
-                    <h2 className="text-4xl sm:text-5xl font-extrabold text-gray-900 dark:text-gray-100 mb-12 leading-tight">
-                        Hear What Our Users Say
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+            <motion.section 
+                className="py-20 px-4 sm:px-6 lg:px-8 bg-white"
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, amount: 0.2 }}
+                variants={staggerContainer}
+            >
+                <div className="max-w-7xl mx-auto">
+                    <motion.div 
+                        variants={fadeInUp} 
+                        className="text-center mb-12"
+                    >
+                        <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6">
+                            What Our Users Say
+                        </h2>
+                        <p className="text-xl text-slate-600 max-w-3xl mx-auto">
+                            Join thousands of satisfied users who are already outranking their competition with CrestNova.Sol.
+                        </p>
+                    </motion.div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                         {[
                             {
-                                quote: "CrestNova.Sol is an absolute game-changer. The depth of analysis and actionable advice propelled our organic traffic beyond expectations!",
-                                author: "Eleanor Vance",
-                                title: "Head of Digital Strategy at 'Quantum Innovations'",
-                                avatar: "https://randomuser.me/api/portraits/women/6.jpg"
+                                name: "Eleanor Vance",
+                                role: "Head of Digital Strategy",
+                                company: "Quantum Innovations",
+                                avatar: "https://randomuser.me/api/portraits/women/6.jpg",
+                                rating: 5,
+                                text: "CrestNova.Sol is an absolute game-changer. The depth of analysis and actionable advice propelled our organic traffic beyond expectations!"
                             },
                             {
-                                quote: "As a small business, understanding SEO was daunting. CrestNova.Sol made it incredibly simple, leading to tangible growth in just weeks.",
-                                author: "Marcus Thorne",
-                                title: "Founder of 'GreenBloom Organics'",
-                                avatar: "https://randomuser.me/api/portraits/men/7.jpg"
+                                name: "Marcus Thorne",
+                                role: "Founder",
+                                company: "GreenBloom Organics",
+                                avatar: "https://randomuser.me/api/portraits/men/7.jpg",
+                                rating: 5,
+                                text: "As a small business, understanding SEO was daunting. CrestNova.Sol made it incredibly simple, leading to tangible growth in just weeks."
                             },
                             {
-                                quote: "Their reports are not just comprehensive; they're genuinely intelligent. It's like having a senior SEO consultant on demand.",
-                                author: "Sophia Renaldi",
-                                title: "Lead SEO Analyst at 'Converge Digital'",
-                                avatar: "https://randomuser.me/api/portraits/women/8.jpg"
-                            },
+                                name: "Sophia Renaldi",
+                                role: "Lead SEO Analyst",
+                                company: "Converge Digital",
+                                avatar: "https://randomuser.me/api/portraits/women/8.jpg",
+                                rating: 5,
+                                text: "Their reports are not just comprehensive; they're genuinely intelligent. It's like having a senior SEO consultant on demand."
+                            }
                         ].map((testimonial, index) => (
                             <motion.div
                                 key={index}
-                                className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg text-center border border-gray-200 dark:border-gray-700 flex flex-col items-center transform hover:-translate-y-2 transition duration-300 ease-in-out group relative overflow-hidden"
-                                variants={itemSlideUp}
-                                whileHover={{ boxShadow: "0 15px 30px rgba(0,0,0,0.15)" }}
+                                variants={fadeInUp}
+                                className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-xl border border-slate-200 hover:shadow-2xl transition-all duration-300"
                             >
-                                {/* Subtle quote background */}
-                                <div className="absolute inset-0 bg-blue-500/5 dark:bg-purple-800/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl" />
-                                <img
-                                    src={testimonial.avatar}
-                                    alt={`Avatar of ${testimonial.author}`}
-                                    className="w-24 h-24 rounded-full mb-6 object-cover border-4 border-blue-300 dark:border-purple-600 shadow-md relative z-10"
-                                />
-                                <div className="flex text-yellow-500 mb-4 relative z-10">
-                                    {[...Array(5)].map((_, i) => (
-                                        <Star key={i} className="w-6 h-6 fill-current" />
+                                <div className="flex items-center mb-6">
+                                    <img 
+                                        src={testimonial.avatar} 
+                                        alt={testimonial.name}
+                                        className="w-12 h-12 rounded-full mr-4"
+                                    />
+                                    <div>
+                                        <div className="font-semibold text-slate-900">{testimonial.name}</div>
+                                        <div className="text-slate-600 text-sm">{testimonial.role} at {testimonial.company}</div>
+                                    </div>
+                                </div>
+                                <div className="flex mb-4">
+                                    {[...Array(testimonial.rating)].map((_, i) => (
+                                        <Star key={i} className="w-5 h-5 text-yellow-400 fill-current" />
                                     ))}
                                 </div>
-                                <p className="text-xl italic text-gray-700 dark:text-gray-300 mb-5 relative z-10 leading-relaxed">
-                                    "{testimonial.quote}"
-                                </p>
-                                <p className="font-extrabold text-lg text-gray-900 dark:text-gray-100 relative z-10">
-                                    {testimonial.author}
-                                </p>
-                                <p className="text-base text-blue-600 dark:text-blue-300 relative z-10">
-                                    {testimonial.title}
-                                </p>
+                                <p className="text-slate-700 leading-relaxed">"{testimonial.text}"</p>
                             </motion.div>
                         ))}
                     </div>
-                </motion.div>
-            </section>
+                </div>
+            </motion.section>
 
-            {/* Pricing Plans Preview */}
-            <section className="py-24 px-4 sm:px-6 lg:px-8 bg-gray-100 dark:bg-gray-900 transition-colors duration-500">
-                <motion.div
-                    className="container mx-auto text-center"
-                    initial="hidden"
-                    whileInView="visible"
-                    viewport={{ once: true, amount: 0.3 }}
-                    variants={fadeIn}
-                >
-                    <h2 className="text-4xl sm:text-5xl font-extrabold text-gray-900 dark:text-gray-100 mb-6 leading-tight">
-                        Flexible Plans for Every Ambition
-                    </h2>
-                    <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-400 mb-12 max-w-4xl mx-auto">
-                        Start with a powerful free audit or unlock our complete suite of advanced features for unparalleled growth.
-                    </p>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-5xl mx-auto">
-                        {/* Free Plan */}
-                        <motion.div
-                            className="bg-white dark:bg-gray-800 p-10 rounded-xl shadow-xl border-2 border-transparent hover:border-blue-500 dark:hover:border-blue-400 transform hover:-translate-y-2 transition duration-300 ease-in-out relative overflow-hidden group"
-                            variants={itemSlideUp}
-                            whileHover={{ boxShadow: "0 15px 30px rgba(0,0,0,0.15)" }}
-                        >
-                            {/* Subtle background glow on hover */}
-                            <div className="absolute inset-0 bg-blue-500/10 dark:bg-blue-800/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl" />
-                            <h3 className="text-3xl font-extrabold text-gray-900 dark:text-gray-100 mb-4 relative z-10">Basic Free</h3>
-                            <p className="text-6xl font-extrabold text-blue-600 mb-8 flex items-center justify-center relative z-10">
-                                $0<span className="text-2xl font-medium text-gray-500 ml-3">/month</span>
-                            </p>
-                            <ul className="text-left space-y-4 mb-10 text-lg relative z-10">
-                                <li className="flex items-center text-gray-700 dark:text-gray-300">
-                                    <CheckCircle className="w-6 h-6 text-green-500 mr-3 flex-shrink-0" />1 Site Audit / day
-                                </li>
-                                <li className="flex items-center text-gray-700 dark:text-gray-300">
-                                    <CheckCircle className="w-6 h-6 text-green-500 mr-3 flex-shrink-0" />Top Keyword Insights
-                                </li>
-                                <li className="flex items-center text-gray-700 dark:text-gray-300">
-                                    <CheckCircle className="w-6 h-6 text-green-500 mr-3 flex-shrink-0" />Mobile Responsiveness Check
-                                </li>
-                                <li className="flex items-center text-gray-500 dark:text-gray-400 opacity-60">
-                                    <XCircle className="w-6 h-6 text-red-500 mr-3 flex-shrink-0" />Advanced Analytics
-                                </li>
-                                <li className="flex items-center text-gray-500 dark:text-gray-400 opacity-60">
-                                    <XCircle className="w-6 h-6 text-red-500 mr-3 flex-shrink-0" />Competitor Monitoring
-                                </li>
-                            </ul>
-                            <motion.button
-                                onClick={() => navigate("/signup")}
-                                className="w-full bg-blue-600 text-white font-bold py-4 px-8 rounded-lg shadow-md hover:bg-blue-700 transform hover:-translate-y-1 transition duration-300 ease-in-out text-xl relative z-10"
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                            >
-                                Start Your Free Journey
-                            </motion.button>
-                        </motion.div>
-
-                        {/* Premium Plan */}
-                        <motion.div
-                            className="bg-gradient-to-br from-blue-600 to-purple-700 text-white p-10 rounded-xl shadow-2xl border-2 border-blue-400 transform hover:scale-102 transition duration-300 ease-in-out relative overflow-hidden group"
-                            variants={itemSlideUp}
-                            whileHover={{ boxShadow: "0 20px 40px rgba(0,0,0,0.2)" }}
-                        >
-                            <span className="absolute top-0 right-0 bg-white/20 text-white text-sm font-bold px-4 py-1.5 rounded-bl-lg">Most Popular</span>
-                            <h3 className="text-3xl font-extrabold mb-4 relative z-10">Pro Unlimited</h3>
-                            <p className="text-6xl font-extrabold mb-8 flex items-center justify-center relative z-10">
-                                $39<span className="text-2xl font-medium text-blue-100 ml-3">/month</span>
-                            </p>
-                            <ul className="text-left space-y-4 mb-10 text-lg relative z-10">
-                                <li className="flex items-center text-blue-100">
-                                    <CheckCircle className="w-6 h-6 text-green-300 mr-3 flex-shrink-0" />All Basic Features
-                                </li>
-                                <li className="flex items-center text-blue-100">
-                                    <CheckCircle className="w-6 h-6 text-green-300 mr-3 flex-shrink-0" />Unlimited Audits & Reports
-                                </li>
-                                <li className="flex items-center text-blue-100">
-                                    <CheckCircle className="w-6 h-6 text-green-300 mr-3 flex-shrink-0" />Advanced Keyword Tools
-                                </li>
-                                <li className="flex items-center text-blue-100">
-                                    <CheckCircle className="w-6 h-6 text-green-300 mr-3 flex-shrink-0" />Competitor Analysis
-                                </li>
-                                <li className="flex items-center text-blue-100">
-                                    <CheckCircle className="w-6 h-6 text-green-300 mr-3 flex-shrink-0" />Priority Support
-                                </li>
-                            </ul>
-                            <motion.button
-                                onClick={() => navigate("/signup")}
-                                className="w-full bg-white text-purple-700 font-bold py-4 px-8 rounded-lg shadow-md hover:bg-gray-100 transform hover:-translate-y-1 transition duration-300 ease-in-out text-xl relative z-10"
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                            >
-                                Unlock Pro Power
-                            </motion.button>
-                        </motion.div>
-                    </div>
-                </motion.div>
-            </section>
-
-            {/* Final Call to Action - Expanded and Prominent */}
-            <motion.section
-                className="py-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-blue-700 to-purple-800 dark:from-gray-800 dark:to-gray-900 text-white text-center shadow-inner"
-                initial={{ opacity: 0, y: 50 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.5 }}
-                transition={{ duration: 0.8 }}
+            {/* Screenshots Preview (Conceptual) */}
+            <motion.section 
+                className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-white to-blue-50"
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, amount: 0.3 }}
+                variants={staggerContainer}
             >
-                <h2 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold mb-6 leading-tight drop-shadow-lg">
-                    Ready to Revolutionize Your Rankings?
-                </h2>
-                <p className="text-xl sm:text-2xl opacity-90 mb-12 max-w-4xl mx-auto font-light drop-shadow-md">
-                    Join thousands of satisfied users who are already outranking their competition with CrestNova.Sol.
-                </p>
-                <motion.button
-                    onClick={() => navigate("/signup")}
-                    className="bg-white text-blue-700 font-extrabold py-5 px-12 rounded-full shadow-2xl hover:shadow-3xl transform hover:-translate-y-2 transition duration-300 ease-in-out text-2xl flex items-center justify-center mx-auto group"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                <div className="max-w-7xl mx-auto">
+                    <motion.div 
+                        variants={fadeInUp} 
+                        className="text-center mb-12"
+                    >
+                        <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6">
+                            Your Data, Beautifully Presented
+                        </h2>
+                        <p className="text-xl text-slate-600 max-w-3xl mx-auto">
+                            Access intuitive dashboards and crystal-clear visualizations to monitor your SEO progress with ease.
+                        </p>
+                    </motion.div>
+                    <motion.div
+                        variants={fadeInUp}
+                        className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl p-6 md:p-8 border border-white/50 hover:shadow-2xl transition-all duration-300"
+                    >
+                        <img
+                            src="https://via.placeholder.com/1600x900/4a00e0/8e29e0?text=CrestNova.Sol+Dashboard+Preview"
+                            alt="SEO Dashboard Preview"
+                            className="rounded-lg w-full h-auto object-cover border border-slate-200"
+                        />
+                    </motion.div>
+                </div>
+                <motion.div 
+                    className="absolute top-20 left-10 w-10 h-10 opacity-20"
+                    variants={floatingAnimation}
+                    animate="animate"
                 >
-                    Get Your FREE, Advanced SEO Audit Now!
-                    <ArrowRight className="w-7 h-7 ml-4 transition-transform group-hover:translate-x-2" />
-                </motion.button>
+                    <svg viewBox="0 0 50 50">
+                        <defs>
+                            <linearGradient id="screenshotShard" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stopColor="#3b82f6" />
+                                <stop offset="100%" stopColor="#8b5cf6" />
+                            </linearGradient>
+                        </defs>
+                        <polygon points="25,5 40,20 25,35 10,20" fill="url(#screenshotShard)" />
+                    </svg>
+                </motion.div>
+            </motion.section>
+
+            {/* Pricing Section */}
+            <motion.section 
+                id="pricing"
+                className="py-20 px-4 sm:px-6 lg:px-8 bg-white/90 backdrop-blur-md relative overflow-hidden"
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, amount: 0.2 }}
+                variants={staggerContainer}
+            >
+                <div className="absolute inset-0 opacity-10">
+                    <svg className="w-full h-full" viewBox="0 0 800 400">
+                        <defs>
+                            <linearGradient id="pricingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.1" />
+                                <stop offset="50%" stopColor="#8b5cf6" stopOpacity="0.2" />
+                                <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.1" />
+                            </linearGradient>
+                            <filter id="pricingGlow">
+                                <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                                <feMerge> 
+                                    <feMergeNode in="coloredBlur"/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        <g fill="url(#pricingGradient)" filter="url(#pricingGlow)" opacity="0.4">
+                            <polygon points="100,100 150,50 200,100 150,150" />
+                            <polygon points="500,150 550,100 600,150 550,200" />
+                            <circle cx="700" cy="200" r="10" />
+                        </g>
+                        <g stroke="url(#pricingGradient)" strokeWidth="1" fill="none" opacity="0.2">
+                            <line x1="100" y1="100" x2="200" y2="100" />
+                            <line x1="500" y1="150" x2="600" y2="150" />
+                        </g>
+                    </svg>
+                </div>
+                <div className="relative z-10 max-w-7xl mx-auto">
+                    <motion.div 
+                        variants={fadeInUp} 
+                        className="text-center mb-12"
+                    >
+                        <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6">
+                            Flexible Plans for Every Ambition
+                        </h2>
+                        <p className="text-xl text-slate-600 max-w-3xl mx-auto">
+                            Start with a powerful free audit or unlock our complete suite of advanced features for unparalleled growth.
+                        </p>
+                    </motion.div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+                        {[
+                            {
+                                name: "Basic Free",
+                                price: "$0",
+                                period: "forever",
+                                description: "Perfect for small websites and beginners",
+                                features: [
+                                    "1 Site Audit / day",
+                                    "Top Keyword Insights",
+                                    "Mobile Responsiveness Check",
+                                    "Basic SEO Recommendations",
+                                    "Email Support"
+                                ],
+                                cta: "Start Your Free Journey",
+                                popular: false
+                            },
+                            {
+                                name: "Pro Unlimited",
+                                price: "$39",
+                                period: "per month",
+                                description: "Best for growing businesses and agencies",
+                                features: [
+                                    "All Basic Features",
+                                    "Unlimited Audits & Reports",
+                                    "Advanced Keyword Tools",
+                                    "Competitor Analysis",
+                                    "Priority Support"
+                                ],
+                                cta: "Unlock Pro Power",
+                                popular: true
+                            }
+                        ].map((plan, index) => (
+                            <motion.div
+                                key={index}
+                                variants={fadeInUp}
+                                className={`relative bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200 p-8 ${
+                                    plan.popular 
+                                        ? 'border-blue-500 transform scale-105' 
+                                        : 'hover:border-blue-300'
+                                } transition-all duration-300 hover:shadow-2xl`}
+                            >
+                                {plan.popular && (
+                                    <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                                        <span className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-full text-sm font-semibold">
+                                            Most Popular
+                                        </span>
+                                    </div>
+                                )}
+                                <div className="text-center mb-8">
+                                    <h3 className="text-2xl font-bold text-slate-900 mb-2">{plan.name}</h3>
+                                    <p className="text-slate-600 mb-4">{plan.description}</p>
+                                    <div className="flex items-baseline justify-center">
+                                        <span className="text-5xl font-bold text-slate-900">{plan.price}</span>
+                                        <span className="text-slate-600 ml-2">/{plan.period}</span>
+                                    </div>
+                                </div>
+                                <ul className="space-y-4 mb-8">
+                                    {plan.features.map((feature, featureIndex) => (
+                                        <li key={featureIndex} className="flex items-start">
+                                            <CheckCircle className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
+                                            <span className="text-slate-700">{feature}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                                <motion.button
+                                    onClick={() => navigate("/signup")}
+                                    className={`w-full py-4 px-6 rounded-xl font-semibold transition-all ${
+                                        plan.popular
+                                            ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:shadow-lg transform hover:-translate-y-1'
+                                            : 'bg-slate-100 text-slate-900 hover:bg-slate-200'
+                                    }`}
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                >
+                                    {plan.cta}
+                                </motion.button>
+                            </motion.div>
+                        ))}
+                    </div>
+                </div>
+                <motion.div 
+                    className="absolute top-20 left-10 w-10 h-10 opacity-20"
+                    variants={floatingAnimation}
+                    animate="animate"
+                >
+                    <svg viewBox="0 0 50 50">
+                        <defs>
+                            <linearGradient id="pricingShard1" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stopColor="#3b82f6" />
+                                <stop offset="100%" stopColor="#8b5cf6" />
+                            </linearGradient>
+                        </defs>
+                        <polygon points="25,5 40,20 25,35 10,20" fill="url(#pricingShard1)" />
+                    </svg>
+                </motion.div>
+                <motion.div 
+                    className="absolute bottom-20 right-10 w-12 h-12 opacity-15"
+                    variants={floatingAnimation}
+                    animate="animate"
+                    transition={{ delay: 1.5 }}
+                >
+                    <svg viewBox="0 0 50 50">
+                        <defs>
+                            <linearGradient id="pricingShard2" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stopColor="#06b6d4" />
+                                <stop offset="100%" stopColor="#3b82f6" />
+                            </linearGradient>
+                        </defs>
+                        <polygon points="25,10 35,25 25,40 15,25" fill="url(#pricingShard2)" />
+                    </svg>
+                </motion.div>
+            </motion.section>
+
+            {/* CTA Section */}
+            <motion.section 
+                className="py-20 px-4 sm:px-6 lg:px-8 bg-white/90 backdrop-blur-md relative overflow-hidden"
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, amount: 0.3 }}
+                variants={staggerContainer}
+            >
+                <div className="absolute inset-0 opacity-10">
+                    <svg className="w-full h-full" viewBox="0 0 800 400">
+                        <defs>
+                            <linearGradient id="ctaGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.1" />
+                                <stop offset="50%" stopColor="#8b5cf6" stopOpacity="0.2" />
+                                <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.1" />
+                            </linearGradient>
+                            <filter id="ctaGlow">
+                                <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                                <feMerge> 
+                                    <feMergeNode in="coloredBlur"/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        <g fill="url(#ctaGradient)" filter="url(#ctaGlow)" opacity="0.4">
+                            <polygon points="100,100 150,50 200,100 150,150" />
+                            <polygon points="500,150 550,100 600,150 550,200" />
+                            <circle cx="700" cy="200" r="10" />
+                        </g>
+                        <g stroke="url(#ctaGradient)" strokeWidth="1" fill="none" opacity="0.2">
+                            <line x1="100" y1="100" x2="200" y2="100" />
+                            <line x1="500" y1 ="150" x2="600" y2="150" />
+                        </g>
+                    </svg>
+                </div>
+                <div className="relative z-10 max-w-5xl mx-auto text-center">
+                    <motion.h2 
+                        variants={fadeInUp}
+                        className="text-4xl md:text-5xl font-bold text-slate-900 mb-6 leading-tight"
+                    >
+                        Ready to Revolutionize Your Rankings?
+                    </motion.h2>
+                    <motion.p 
+                        variants={fadeInUp}
+                        className="text-xl text-slate-600 mb-10 max-w-2xl mx-auto leading-relaxed"
+                    >
+                        Join thousands of satisfied users who are already outranking their competition with CrestNova.Sol.
+                    </motion.p>
+                    <motion.div 
+                        variants={fadeInUp}
+                        className="flex flex-col sm:flex-row gap-6 justify-center items-center"
+                    >
+                        <motion.button
+                            onClick={() => navigate("/signup")}
+                            className="px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:shadow-lg transform hover:-translate-y-1 transition-all text-lg flex items-center space-x-2"
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            aria-label="Get free SEO audit"
+                        >
+                            <span>Get Your FREE, Advanced SEO Audit Now!</span>
+                            <ArrowRight className="w-5 h-5" />
+                        </motion.button>
+                        <motion.button
+                            className="px-6 py-4 bg-gray-100 text-slate-900 font-semibold rounded-xl hover:bg-gray-200 border border-gray-300 transform hover:-translate-y-1 transition-all text-lg"
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            aria-label="Schedule a demo"
+                        >
+                            Schedule Demo
+                        </motion.button>
+                    </motion.div>
+                </div>
+                <motion.div 
+                    className="absolute top-20 left-10 w-12 h-12 opacity-20"
+                    variants={floatingAnimation}
+                    animate="animate"
+                >
+                    <svg viewBox="0 0 50 50">
+                        <defs>
+                            <linearGradient id="ctaShard1" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stopColor="#3b82f6" />
+                                <stop offset="100%" stopColor="#8b5cf6" />
+                            </linearGradient>
+                        </defs>
+                        <polygon points="25,5 40,20 25,35 10,20" fill="url(#ctaShard1)" />
+                    </svg>
+                </motion.div>
+                <motion.div 
+                    className="absolute bottom-20 right-10 w-10 h-10 opacity-15"
+                    variants={floatingAnimation}
+                    animate="animate"
+                    transition={{ delay: 1.5 }}
+                >
+                    <svg viewBox="0 0 50 50">
+                        <defs>
+                            <linearGradient id="ctaShard2" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stopColor="#06b6d4" />
+                                <stop offset="100%" stopColor="#3b82f6" />
+                            </linearGradient>
+                        </defs>
+                        <polygon points="25,10 35,25 25,40 15,25" fill="url(#ctaShard2)" />
+                    </svg>
+                </motion.div>
             </motion.section>
 
             <Footer />
@@ -684,4 +866,4 @@ const Landing = () => {
     );
 };
 
-export default Landing;
+export default Home;

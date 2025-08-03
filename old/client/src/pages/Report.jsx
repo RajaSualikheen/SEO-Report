@@ -1,19 +1,28 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, AlertTriangle, BookOpen, Hash, TrendingUp, X, FileCode, Link as LinkIcon, ExternalLink, MinusCircle, Smartphone, Code, Info, Sun, Repeat, FileDown } from 'lucide-react';
+import {
+    CheckCircle, AlertTriangle, BookOpen, Hash, TrendingUp, X, FileCode, LinkIcon,
+    ExternalLink, MinusCircle, Smartphone, Code, Info, Sun, Repeat, FileDown, Shield,
+    TerminalSquare, Layout, Server, Zap, Globe, HardDrive, MapPin, Phone, Rss, Layers,
+    FileText, Lightbulb, AlignLeft, BarChart2
+} from 'lucide-react';
 import Navbar from '../components/navbar';
 import Footer from '../components/footer';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ReportCard from './ReportCard';
 import ReactDOM from 'react-dom';
-import { Circle } from 'rc-progress';
+import { Circle, Line } from 'rc-progress';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import PDFReport from '../components/PDFReport';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
+import { Doughnut } from 'react-chartjs-2';
 
 // Firebase Imports
 import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
 import { getFirestore, doc, getDoc, updateDoc } from "firebase/firestore";
+
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
@@ -29,84 +38,200 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// Helper function to get an icon based on category name
+const getCategoryIcon = (category) => {
+    switch (category) {
+        case 'Content':
+            return <BookOpen className="w-5 h-5 text-indigo-500" />;
+        case 'Technical SEO':
+            return <Server className="w-5 h-5 text-green-500" />;
+        case 'User Experience':
+            return <Lightbulb className="w-5 h-5 text-yellow-500" />;
+        case 'Security':
+            return <Shield className="w-5 h-5 text-red-500" />;
+        case 'Crawlability & Indexability':
+            return <Globe className="w-5 h-5 text-purple-500" />;
+        default:
+            return <Info className="w-5 h-5" />;
+    }
+};
 
+// Custom Divider Component
+const ElegantDivider = ({ categoryName }) => (
+    <div className="flex items-center space-x-3 mb-6 mt-12">
+        <span className="w-full h-px bg-gradient-to-r from-gray-300 via-gray-200 to-gray-50"></span>
+        <div className="flex-shrink-0 flex items-center space-x-2 text-gray-500">
+            {getCategoryIcon(categoryName)}
+            <span className="text-sm font-semibold uppercase">{categoryName}</span>
+        </div>
+        <span className="w-full h-px bg-gradient-to-l from-gray-300 via-gray-200 to-gray-50"></span>
+    </div>
+);
+
+// Scoring Functions
+const getReadabilityStatus = (score) => {
+    if (score >= 90) return { text: 'Very Easy', status: 'good', score: 100 };
+    if (score >= 80) return { text: 'Easy', status: 'good', score: 90 };
+    if (score >= 70) return { text: 'Fairly Easy', status: 'good', score: 80 };
+    if (score >= 60) return { text: 'Standard', status: 'warning', score: 70 };
+    if (score >= 50) return { text: 'Fairly Difficult', status: 'warning', score: 60 };
+    if (score >= 30) return { text: 'Difficult', status: 'bad', score: 50 };
+    return { text: 'Very Difficult', status: 'bad', score: 40 };
+};
+
+const getPageSpeedStatus = (score) => {
+    if (score >= 90) return 'good';
+    if (score >= 50) return 'warning';
+    return 'bad';
+};
+
+const calculateSectionScore = (section, backendData) => {
+    if (section.id === 'content-quality-analysis') {
+        const readabilityScore = getReadabilityStatus(backendData.content_analysis?.flesch_reading_ease_score || 0).score;
+        const keywordScore = backendData.content_analysis?.top_keywords?.length > 0 ? 80 : 20;
+        return (readabilityScore + keywordScore) / 2;
+    }
+    if (section.id === 'keyword-analysis') {
+        const presence = backendData.content_analysis?.keyword_report?.presence || {};
+        const density = backendData.content_analysis?.keyword_report?.density?.density || 0;
+        let score = 0;
+        if (presence.inTitle) score += 20;
+        if (presence.inMetaDescription) score += 20;
+        if (presence.inH1) score += 20;
+        if (presence.inUrl) score += 20;
+        if (presence.inContent && density > 0) score += 20;
+        return score;
+    }
+    if (section.id === 'pagespeed-audit') {
+        const mobileScore = backendData.pagespeed_audit?.mobile?.performance_score || 0;
+        const desktopScore = backendData.pagespeed_audit?.desktop?.performance_score || 0;
+        return (mobileScore + desktopScore) / 2;
+    }
+    if (section.status === 'good') return 100;
+    if (section.status === 'warning') return 60;
+    return 20;
+};
+
+const calculateCategoryScore = (categoryName, groupedSections, backendData) => {
+    const sections = groupedSections?.[categoryName] || [];
+    const totalSections = sections.length;
+    if (totalSections === 0) return { score: 0, max: 0, percentage: 0 };
+    let totalScore = 0;
+    sections.forEach(section => {
+        totalScore += calculateSectionScore(section, backendData);
+    });
+    const percentage = Math.round((totalScore / (totalSections * 100)) * 100);
+    return { score: totalScore, max: totalSections * 100, percentage };
+};
+
+const calculateOverallScore = (groupedSections, backendData) => {
+    const backendScore = Number(backendData.seo_score);
+    if (!isNaN(backendScore) && backendScore >= 0 && backendScore <= 100) {
+        return backendScore;
+    }
+    const categoryScores = Object.keys(groupedSections).map(categoryName => {
+        const { percentage } = calculateCategoryScore(categoryName, groupedSections, backendData);
+        return percentage;
+    });
+    const weights = {
+        Content: 0.4,
+        'Technical SEO': 0.3,
+        'User Experience': 0.2,
+        Security: 0.1,
+        'Crawlability & Indexability': 0.2
+    };
+    let weightedScore = 0;
+    let totalWeight = 0;
+    Object.keys(groupedSections).forEach(categoryName => {
+        const { percentage } = calculateCategoryScore(categoryName, groupedSections, backendData);
+        if (weights[categoryName]) {
+            weightedScore += percentage * weights[categoryName];
+            totalWeight += weights[categoryName];
+        }
+    });
+    return totalWeight > 0 ? Math.round(weightedScore / totalWeight) : 0;
+};
+
+// Modal Component
 const AppModals = ({
-    showKeywordsModal, setShowKeywordsModal, keywordsData,
-    showHeadingsModal, setShowHeadingsModal, headingsData,
-    showBrokenLinksModal, setShowBrokenLinksModal, brokenLinksData,
-    showFixedWidthElementsModal, setShowFixedWidthElementsModal, fixedWidthElementsData,
-    showResponsivenessIssuesModal, setShowResponsivenessIssuesModal, responsivenessIssuesData
+    showTopKeywordsModal, setShowTopKeywordsModal,
+    showSuggestionsModal, setShowSuggestionsModal,
+    keywordsModalData,
+    showHeadingsModal, setShowHeadingsModal,
+    headingsData,
+    showBrokenLinksModal, setShowBrokenLinksModal,
+    brokenLinksData,
+    showFixedWidthElementsModal, setShowFixedWidthElementsModal,
+    fixedWidthElementsModalData,
+    showResponsivenessIssuesModal, setShowResponsivenessIssuesModal,
+    responsivenessIssuesModalData,
+    showRedirectsModal, setShowRedirectsModal,
+    redirectsModalData
 }) => {
     const modalRef = useRef(null);
     const [portalRoot, setPortalRoot] = useState(null);
 
     useEffect(() => {
         const root = document.getElementById('modal-root');
-        if (root) {
-            setPortalRoot(root);
-        } else {
-            console.error('❌ Error: #modal-root NOT found in the DOM.');
-        }
+        setPortalRoot(root || null);
     }, []);
 
     useEffect(() => {
-        if (showKeywordsModal || showHeadingsModal || showBrokenLinksModal || showFixedWidthElementsModal || showResponsivenessIssuesModal) {
-            document.body.style.overflow = 'hidden';
-            const timer = setTimeout(() => {
-                if (modalRef.current) {
-                    modalRef.current.focus();
-                }
-            }, 50);
-            return () => clearTimeout(timer);
-        } else {
-            document.body.style.overflow = 'unset';
-        }
-        return () => {
-            document.body.style.overflow = 'unset';
+        const handleOverflow = () => {
+            document.body.style.overflow = (showTopKeywordsModal || showSuggestionsModal || showHeadingsModal || showBrokenLinksModal || showFixedWidthElementsModal || showResponsivenessIssuesModal || showRedirectsModal) ? 'hidden' : 'unset';
         };
-    }, [showKeywordsModal, setShowKeywordsModal, showHeadingsModal, setShowHeadingsModal, showBrokenLinksModal, setShowBrokenLinksModal, showFixedWidthElementsModal, setShowFixedWidthElementsModal, showResponsivenessIssuesModal, setShowResponsivenessIssuesModal]);
+        handleOverflow();
+        const timer = setTimeout(() => {
+            if (modalRef.current) modalRef.current.focus();
+        }, 50);
+        return () => {
+            clearTimeout(timer);
+            handleOverflow();
+        };
+    }, [showTopKeywordsModal, showSuggestionsModal, showHeadingsModal, showBrokenLinksModal, showFixedWidthElementsModal, showResponsivenessIssuesModal, showRedirectsModal]);
 
     useEffect(() => {
         const handleEscape = (event) => {
             if (event.key === 'Escape') {
-                setShowKeywordsModal(false);
+                setShowTopKeywordsModal(false);
+                setShowSuggestionsModal(false);
                 setShowHeadingsModal(false);
                 setShowBrokenLinksModal(false);
                 setShowFixedWidthElementsModal(false);
                 setShowResponsivenessIssuesModal(false);
+                setShowRedirectsModal(false);
             }
         };
-        if (showKeywordsModal || showHeadingsModal || showBrokenLinksModal || showFixedWidthElementsModal || showResponsivenessIssuesModal) {
-            document.addEventListener('keydown', handleEscape);
-        } else {
-            document.removeEventListener('keydown', handleEscape);
-        }
-        return () => {
-            document.removeEventListener('keydown', handleEscape);
-        };
-    }, [showKeywordsModal, setShowKeywordsModal, showHeadingsModal, setShowHeadingsModal, showBrokenLinksModal, setShowBrokenLinksModal, showFixedWidthElementsModal, setShowFixedWidthElementsModal, showResponsivenessIssuesModal, setShowResponsivenessIssuesModal]);
+        document.addEventListener('keydown', handleEscape);
+        return () => document.removeEventListener('keydown', handleEscape);
+    }, [setShowTopKeywordsModal, setShowSuggestionsModal, setShowHeadingsModal, setShowBrokenLinksModal, setShowFixedWidthElementsModal, setShowResponsivenessIssuesModal, setShowRedirectsModal]);
 
-    if (!portalRoot) {
-        return null;
-    }
+    if (!portalRoot) return null;
 
     const modalTransitionClasses = 'transition-opacity duration-300 ease-out transform';
     const modalActiveClasses = 'opacity-100 scale-100';
     const modalInactiveClasses = 'opacity-0 scale-95';
 
+    const handleCloseModal = () => {
+        setShowTopKeywordsModal(false);
+        setShowSuggestionsModal(false);
+        setShowHeadingsModal(false);
+        setShowBrokenLinksModal(false);
+        setShowFixedWidthElementsModal(false);
+        setShowResponsivenessIssuesModal(false);
+        setShowRedirectsModal(false);
+    };
+
     return (
         <>
-            {showKeywordsModal && keywordsModalData && (
+            {showTopKeywordsModal && keywordsModalData?.top_keywords?.length > 0 && (
                 ReactDOM.createPortal(
                     <div
-                        className={`fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4 ${modalTransitionClasses} ${showKeywordsModal ? modalActiveClasses : modalInactiveClasses}`}
-                        onClick={() => setShowKeywordsModal(false)}
+                        className={`fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4 ${modalTransitionClasses} ${showTopKeywordsModal ? modalActiveClasses : modalInactiveClasses}`}
+                        onClick={handleCloseModal}
                     >
                         <div
-                            className={`bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 md:p-8 lg:p-10
-                                    w-11/12 max-w-7xl max-h-[95vh] overflow-y-auto relative
-                                    border border-gray-200 dark:border-gray-700
-                                    ${modalTransitionClasses} ${showKeywordsModal ? modalActiveClasses : modalInactiveClasses}`}
+                            className={`bg-white/90 backdrop-blur-md rounded-xl shadow-2xl p-6 md:p-8 lg:p-10 w-11/12 max-w-7xl max-h-[95vh] overflow-y-auto relative border border-gray-200 ${modalTransitionClasses} ${showTopKeywordsModal ? modalActiveClasses : modalInactiveClasses}`}
                             role="dialog"
                             aria-modal="true"
                             tabIndex="-1"
@@ -114,28 +239,28 @@ const AppModals = ({
                             onClick={(e) => e.stopPropagation()}
                         >
                             <button
-                                onClick={() => setShowKeywordsModal(false)}
-                                className="absolute top-4 right-4 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                                onClick={handleCloseModal}
+                                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+                                aria-label="Close modal"
                             >
                                 <X className="w-6 h-6" />
                             </button>
-                            <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6 text-center">Top Keywords</h3>
-
-                            <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-                                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                                    <thead className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white">
+                            <h3 className="text-2xl font-bold text-slate-900 mb-6 text-center">Top Keywords</h3>
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
                                         <tr>
-                                            <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider rounded-tl-lg">Keyword</th>
-                                            <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider">Frequency</th>
-                                            <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider">Density</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Keyword</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Frequency</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Density (%)</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                        {keywordsModalData?.top_keywords?.map((kw, index) => (
-                                            <tr key={index} className={index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-750'}>
-                                                <td className="px-4 py-3 whitespace-nowrap text-base font-medium text-gray-900 dark:text-gray-100">{kw.keyword}</td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-base text-gray-700 dark:text-gray-200">{kw.frequency}</td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-base text-gray-700 dark:text-gray-200">{kw.density}%</td>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        {keywordsModalData.top_keywords.map((kw, index) => (
+                                            <tr key={index}>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{kw.keyword}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{kw.frequency}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{kw.density}%</td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -147,18 +272,14 @@ const AppModals = ({
                 )
             )}
 
-            {/* Headings Modal */}
-            {showHeadingsModal && headingsModalData && (
+            {showSuggestionsModal && keywordsModalData?.keyword_suggestions?.length > 0 && (
                 ReactDOM.createPortal(
                     <div
-                        className={`fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4 ${modalTransitionClasses} ${showHeadingsModal ? modalActiveClasses : modalInactiveClasses}`}
-                        onClick={() => setShowHeadingsModal(false)}
+                        className={`fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4 ${modalTransitionClasses} ${showSuggestionsModal ? modalActiveClasses : modalInactiveClasses}`}
+                        onClick={handleCloseModal}
                     >
                         <div
-                            className={`bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 md:p-8 lg:p-10
-                                    w-11/12 max-w-7xl max-h-[95vh] overflow-y-auto relative
-                                    border border-gray-200 dark:border-gray-700
-                                    ${modalTransitionClasses} ${showHeadingsModal ? modalActiveClasses : modalInactiveClasses}`}
+                            className={`bg-white/90 backdrop-blur-md rounded-xl shadow-2xl p-6 md:p-8 lg:p-10 w-11/12 max-w-7xl max-h-[95vh] overflow-y-auto relative border border-gray-200 ${modalTransitionClasses} ${showSuggestionsModal ? modalActiveClasses : modalInactiveClasses}`}
                             role="dialog"
                             aria-modal="true"
                             tabIndex="-1"
@@ -166,49 +287,34 @@ const AppModals = ({
                             onClick={(e) => e.stopPropagation()}
                         >
                             <button
-                                onClick={() => setShowHeadingsModal(false)}
-                                className="absolute top-4 right-4 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                                onClick={handleCloseModal}
+                                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+                                aria-label="Close modal"
                             >
                                 <X className="w-6 h-6" />
                             </button>
-                            <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6 text-center">Full Heading Order</h3>
-
-                            <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-                                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                                    <thead className="bg-gradient-to-r from-purple-500 to-pink-500 text-white">
-                                        <tr>
-                                            <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider rounded-tl-lg">Tag</th>
-                                            <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider">Text</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                        {headingsModalData?.map((h, index) => (
-                                            <tr key={index} className={index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-750'}>
-                                                <td className="px-4 py-3 whitespace-nowrap text-base font-medium text-gray-900 dark:text-gray-100">&lt;{h.tag}&gt;</td>
-                                                <td className="px-4 py-3 whitespace-normal text-base text-gray-700 dark:text-gray-200">{h.text}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                            <h3 className="text-2xl font-bold text-slate-900 mb-6 text-center">Keyword Suggestions</h3>
+                            <ul className="list-disc list-inside text-gray-700 p-4">
+                                {keywordsModalData.keyword_suggestions.map((suggestion, index) => (
+                                    <li key={index} className="mb-2">
+                                        {suggestion}
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
                     </div>,
                     portalRoot
                 )
             )}
 
-            {/* Broken Links Modal */}
-            {showBrokenLinksModal && brokenLinksModalData && (
+            {showHeadingsModal && headingsData && (
                 ReactDOM.createPortal(
                     <div
-                        className={`fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4 ${modalTransitionClasses} ${showBrokenLinksModal ? modalActiveClasses : modalInactiveClasses}`}
-                        onClick={() => setShowBrokenLinksModal(false)}
+                        className={`fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4 ${modalTransitionClasses} ${showHeadingsModal ? modalActiveClasses : modalInactiveClasses}`}
+                        onClick={handleCloseModal}
                     >
                         <div
-                            className={`bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 md:p-8 lg:p-10
-                                    w-11/12 max-w-7xl max-h-[95vh] overflow-y-auto relative
-                                    border border-gray-200 dark:border-gray-700
-                                    ${modalTransitionClasses} ${showBrokenLinksModal ? modalActiveClasses : modalInactiveClasses}`}
+                            className={`bg-white/90 backdrop-blur-md rounded-xl shadow-2xl p-6 md:p-8 lg:p-10 w-11/12 max-w-7xl max-h-[95vh] overflow-y-auto relative border border-gray-200 ${modalTransitionClasses} ${showHeadingsModal ? modalActiveClasses : modalInactiveClasses}`}
                             role="dialog"
                             aria-modal="true"
                             tabIndex="-1"
@@ -216,38 +322,38 @@ const AppModals = ({
                             onClick={(e) => e.stopPropagation()}
                         >
                             <button
-                                onClick={() => setShowBrokenLinksModal(false)}
-                                className="absolute top-4 right-4 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                                onClick={handleCloseModal}
+                                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+                                aria-label="Close modal"
                             >
                                 <X className="w-6 h-6" />
                             </button>
-                            <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6 text-center">Broken Links Found</h3>
-
-                            {brokenLinksModalData.length > 0 ? (
-                                <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-                                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                                        <thead className="bg-gradient-to-r from-red-500 to-rose-600 text-white">
-                                            <tr>
-                                                <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider rounded-tl-lg">Link URL</th>
-                                                <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider rounded-tr-lg">Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                            {brokenLinksModalData.map((link, index) => (
-                                                <tr key={index} className={index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-750'}>
-                                                    <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100 break-all">
-                                                        <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                                                            {link.url}
-                                                        </a>
-                                                    </td>
-                                                    <td className="px-4 py-3 whitespace-normal text-sm text-red-700 dark:text-red-300">{link.reason}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                            <h3 className="text-2xl font-bold text-slate-900 mb-6 text-center">Heading Structure</h3>
+                            {headingsData.headingOrder.length > 0 || headingsData.headingIssues.length > 0 ? (
+                                <div className="p-4">
+                                    <h4 className="text-lg font-semibold text-gray-700 mb-2">All Headings</h4>
+                                    <ul className="list-disc list-inside text-gray-700 mb-4">
+                                        {headingsData.headingOrder.map((heading, index) => (
+                                            <li key={index} className="mb-1">
+                                                &lt;{heading.tag}&gt; {heading.text}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    {headingsData.headingIssues.length > 0 && (
+                                        <>
+                                            <h4 className="text-lg font-semibold text-gray-700 mb-2">Issues</h4>
+                                            <ul className="list-disc list-inside text-gray-700">
+                                                {headingsData.headingIssues.map((issue, index) => (
+                                                    <li key={index} className="mb-1">
+                                                        {issue}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </>
+                                    )}
                                 </div>
                             ) : (
-                                <p className="text-green-600 dark:text-green-300 text-center text-xl py-8">No broken links found. Great job!</p>
+                                <p className="text-green-600 text-center text-xl py-8">No heading issues or headings found.</p>
                             )}
                         </div>
                     </div>,
@@ -255,18 +361,14 @@ const AppModals = ({
                 )
             )}
 
-            {/* Fixed-Width Elements Modal */}
-            {showFixedWidthElementsModal && fixedWidthElementsModalData && (
+            {showBrokenLinksModal && brokenLinksData && (
                 ReactDOM.createPortal(
                     <div
-                        className={`fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4 ${modalTransitionClasses} ${showFixedWidthElementsModal ? modalActiveClasses : modalInactiveClasses}`}
-                        onClick={() => setShowFixedWidthElementsModal(false)}
+                        className={`fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4 ${modalTransitionClasses} ${showBrokenLinksModal ? modalActiveClasses : modalInactiveClasses}`}
+                        onClick={handleCloseModal}
                     >
                         <div
-                            className={`bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 md:p-8 lg:p-10
-                                    w-11/12 max-w-7xl max-h-[95vh] overflow-y-auto relative
-                                    border border-gray-200 dark:border-gray-700
-                                    ${modalTransitionClasses} ${showFixedWidthElementsModal ? modalActiveClasses : modalInactiveClasses}`}
+                            className={`bg-white/90 backdrop-blur-md rounded-xl shadow-2xl p-6 md:p-8 lg:p-10 w-11/12 max-w-7xl max-h-[95vh] overflow-y-auto relative border border-gray-200 ${modalTransitionClasses} ${showBrokenLinksModal ? modalActiveClasses : modalInactiveClasses}`}
                             role="dialog"
                             aria-modal="true"
                             tabIndex="-1"
@@ -274,16 +376,70 @@ const AppModals = ({
                             onClick={(e) => e.stopPropagation()}
                         >
                             <button
-                                onClick={() => setShowFixedWidthElementsModal(false)}
-                                className="absolute top-4 right-4 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                                onClick={handleCloseModal}
+                                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+                                aria-label="Close modal"
                             >
                                 <X className="w-6 h-6" />
                             </button>
-                            <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6 text-center">Fixed-Width Elements</h3>
+                            <h3 className="text-2xl font-bold text-slate-900 mb-6 text-center">Broken Links Found</h3>
+                            {brokenLinksData.length > 0 ? (
+                                <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gradient-to-r from-red-500 to-rose-600 text-white">
+                                            <tr>
+                                                <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider rounded-tl-lg">Link URL</th>
+                                                <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider rounded-tr-lg">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            {brokenLinksData.map((link, index) => (
+                                                <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                                    <td className="px-4 py-3 text-sm font-medium text-gray-900 break-all">
+                                                        <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                                            {link.url}
+                                                        </a>
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-normal text-sm text-red-700">{link.reason}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <p className="text-green-600 text-center text-xl py-8">No broken links found. Great job!</p>
+                            )}
+                        </div>
+                    </div>,
+                    portalRoot
+                )
+            )}
 
+            {showFixedWidthElementsModal && fixedWidthElementsModalData && (
+                ReactDOM.createPortal(
+                    <div
+                        className={`fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4 ${modalTransitionClasses} ${showFixedWidthElementsModal ? modalActiveClasses : modalInactiveClasses}`}
+                        onClick={handleCloseModal}
+                    >
+                        <div
+                            className={`bg-white/90 backdrop-blur-md rounded-xl shadow-2xl p-6 md:p-8 lg:p-10 w-11/12 max-w-7xl max-h-[95vh] overflow-y-auto relative border border-gray-200 ${modalTransitionClasses} ${showFixedWidthElementsModal ? modalActiveClasses : modalInactiveClasses}`}
+                            role="dialog"
+                            aria-modal="true"
+                            tabIndex="-1"
+                            ref={modalRef}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <button
+                                onClick={handleCloseModal}
+                                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+                                aria-label="Close modal"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                            <h3 className="text-2xl font-bold text-slate-900 mb-6 text-center">Fixed-Width Elements</h3>
                             {fixedWidthElementsModalData.length > 0 ? (
-                                <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-                                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+                                    <table className="min-w-full divide-y divide-gray-200">
                                         <thead className="bg-gradient-to-r from-orange-500 to-amber-600 text-white">
                                             <tr>
                                                 <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider rounded-tl-lg">Tag</th>
@@ -291,19 +447,19 @@ const AppModals = ({
                                                 <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider">Source</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                        <tbody className="bg-white divide-y divide-gray-200">
                                             {fixedWidthElementsModalData.map((element, index) => (
-                                                <tr key={index} className={index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-750'}>
-                                                    <td className="px-4 py-3 whitespace-nowrap text-base font-medium text-gray-900 dark:text-gray-100">&lt;{element.tag}&gt;</td>
-                                                    <td className="px-4 py-3 whitespace-nowrap text-base text-gray-700 dark:text-gray-200">{element.value}</td>
-                                                    <td className="px-4 py-3 whitespace-normal text-base text-gray-700 dark:text-gray-200">{element.source}</td>
+                                                <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-base font-medium text-gray-900">&lt;{element.tag}&gt;</td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-base text-gray-700">{element.value}</td>
+                                                    <td className="px-4 py-3 whitespace-normal text-base text-gray-700">{element.source}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
                                     </table>
                                 </div>
                             ) : (
-                                <p className="text-green-600 dark:text-green-300 text-center text-xl py-8">No fixed-width elements found. Great job!</p>
+                                <p className="text-green-600 text-center text-xl py-8">No fixed-width elements found. Great job!</p>
                             )}
                         </div>
                     </div>,
@@ -311,18 +467,14 @@ const AppModals = ({
                 )
             )}
 
-            {/* Responsiveness Issues Modal */}
             {showResponsivenessIssuesModal && responsivenessIssuesModalData && (
                 ReactDOM.createPortal(
                     <div
-                        className={`fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4 ${modalTransitionClasses} ${showResponsivenessIssuesModal ? modalActiveClasses : modalInactiveClasses}`}
-                        onClick={() => setShowResponsivenessIssuesModal(false)}
+                        className={`fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4 ${modalTransitionClasses} ${showResponsivenessIssuesModal ? modalActiveClasses : modalInactiveClasses}`}
+                        onClick={handleCloseModal}
                     >
                         <div
-                            className={`bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 md:p-8 lg:p-10
-                                    w-11/12 max-w-7xl max-h-[95vh] overflow-y-auto relative
-                                    border border-gray-200 dark:border-gray-700
-                                    ${modalTransitionClasses} ${showResponsivenessIssuesModal ? modalActiveClasses : modalInactiveClasses}`}
+                            className={`bg-white/90 backdrop-blur-md rounded-xl shadow-2xl p-6 md:p-8 lg:p-10 w-11/12 max-w-7xl max-h-[95vh] overflow-y-auto relative border border-gray-200 ${modalTransitionClasses} ${showResponsivenessIssuesModal ? modalActiveClasses : modalInactiveClasses}`}
                             role="dialog"
                             aria-modal="true"
                             tabIndex="-1"
@@ -330,27 +482,86 @@ const AppModals = ({
                             onClick={(e) => e.stopPropagation()}
                         >
                             <button
-                                onClick={() => setShowResponsivenessIssuesModal(false)}
-                                className="absolute top-4 right-4 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                                onClick={handleCloseModal}
+                                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+                                aria-label="Close modal"
                             >
                                 <X className="w-6 h-6" />
                             </button>
-                            <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6 text-center">Responsiveness Issues</h3>
-
+                            <h3 className="text-2xl font-bold text-slate-900 mb-6 text-center">Responsiveness Issues</h3>
                             {responsivenessIssuesModalData.length > 0 ? (
-                                <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-                                    <ul className="list-disc list-inside text-gray-700 dark:text-gray-200 p-4">
-                                        {responsivenessIssuesModalData.map((issue, index) => (
-                                            <li key={index} className="flex items-start mb-2">
-                                                {issue.startsWith('❌') ? <AlertTriangle className="w-5 h-5 text-red-500 mr-2 flex-shrink-0" /> : <AlertTriangle className="w-5 h-5 text-orange-500 mr-2 flex-shrink-0" />}
-                                                <span>{issue.replace('❌ ', '').replace('⚠️ ', '')}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
+                                <ul className="list-disc list-inside text-gray-700 p-4">
+                                    {responsivenessIssuesModalData.map((issue, index) => (
+                                        <li key={index} className="mb-2">
+                                            {issue}
+                                        </li>
+                                    ))}
+                                </ul>
                             ) : (
-                                <p className="text-green-600 dark:text-green-300 text-center text-xl py-8">No specific responsiveness issues found.</p>
+                                <p className="text-green-600 text-center text-xl py-8">No specific responsiveness issues found.</p>
                             )}
+                        </div>
+                    </div>,
+                    portalRoot
+                )
+            )}
+
+            {showRedirectsModal && redirectsModalData && (
+                ReactDOM.createPortal(
+                    <div
+                        className={`fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4 ${modalTransitionClasses} ${showRedirectsModal ? modalActiveClasses : modalInactiveClasses}`}
+                        onClick={handleCloseModal}
+                    >
+                        <div
+                            className={`bg-white/90 backdrop-blur-md rounded-xl shadow-2xl p-6 md:p-8 lg:p-10 w-11/12 max-w-xl max-h-[95vh] overflow-y-auto relative border border-gray-200 ${modalTransitionClasses} ${showRedirectsModal ? modalActiveClasses : modalInactiveClasses}`}
+                            role="dialog"
+                            aria-modal="true"
+                            tabIndex="-1"
+                            ref={modalRef}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <button
+                                onClick={handleCloseModal}
+                                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+                                aria-label="Close modal"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                            <h3 className="text-2xl font-bold text-slate-900 mb-6 text-center">Redirect Chains</h3>
+                            <div className="space-y-4">
+                                {Object.keys(redirectsModalData).map((url, index) => {
+                                    const chain = redirectsModalData[url];
+                                    const isGood = chain.final_status_code >= 200 && chain.final_status_code < 300 && chain.redirect_chain.length <= 2;
+                                    const statusColor = isGood ? 'text-green-500' : chain.final_status_code >= 400 ? 'text-red-500' : 'text-orange-500';
+                                    return (
+                                        <div key={index} className="bg-gray-100 p-4 rounded-lg">
+                                            <p className="font-semibold text-gray-900 break-all mb-2">
+                                                <span className="text-sm text-gray-500">Original URL:</span> {url}
+                                            </p>
+                                            <p className="flex items-center text-sm font-medium">
+                                                <span className={`w-2 h-2 rounded-full mr-2 ${isGood ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                                Final Status: <span className={`ml-1 font-bold ${statusColor}`}>{chain.final_status_code || 'N/A'}</span>
+                                            </p>
+                                            <p className="text-sm text-gray-700 mt-2">
+                                                <span className="font-semibold">Redirect Path:</span>
+                                                <span className="break-all block md:inline">
+                                                    {chain.redirect_chain.map((link, i) => (
+                                                        <span key={i} className="text-xs md:text-sm">
+                                                            {i > 0 && <span className="mx-1">→</span>}
+                                                            <span className="text-blue-500 hover:underline">{link}</span>
+                                                        </span>
+                                                    ))}
+                                                </span>
+                                            </p>
+                                            {chain.issues.length > 0 && (
+                                                <ul className="mt-2 list-disc list-inside text-red-500 text-xs">
+                                                    {chain.issues.map((issue, i) => <li key={i}>{issue}</li>)}
+                                                </ul>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>,
                     portalRoot
@@ -364,21 +575,18 @@ const Report = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const websiteUrl = location.state?.websiteUrl;
+    const targetKeyword = location.state?.targetKeyword;
 
     const [reportData, setReportData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [currentUser, setCurrentUser] = useState(undefined);
-    const [activeTab, setActiveTab] = useState('Content');
-    
     const [agencyName, setAgencyName] = useState('');
     const [agencyLogoPreview, setAgencyLogoPreview] = useState(null);
 
-    const reportRef = useRef(null);
-
-    // MODAL STATES AND HANDLERS - THESE MUST BE DECLARED HERE
-    const [showKeywordsModal, setShowKeywordsModal] = useState(false);
-    const [keywordsModalData, setKeywordsModalData] = useState(null);
+    const [showTopKeywordsModal, setShowTopKeywordsModal] = useState(false);
+    const [showSuggestionsModal, setShowSuggestionsModal] = useState(false);
+    const [keywordsModalData, setKeywordsModalData] = useState({ top_keywords: [], keyword_suggestions: [] });
     const [showHeadingsModal, setShowHeadingsModal] = useState(false);
     const [headingsModalData, setHeadingsModalData] = useState(null);
     const [showBrokenLinksModal, setShowBrokenLinksModal] = useState(false);
@@ -387,32 +595,11 @@ const Report = () => {
     const [fixedWidthElementsModalData, setFixedWidthElementsModalData] = useState(null);
     const [showResponsivenessIssuesModal, setShowResponsivenessIssuesModal] = useState(false);
     const [responsivenessIssuesModalData, setResponsivenessIssuesModalData] = useState(null);
+    const [showRedirectsModal, setShowRedirectsModal] = useState(false);
+    const [redirectsModalData, setRedirectsModalData] = useState(null);
 
-    const handleOpenKeywordsModal = (data) => {
-        setKeywordsModalData(data);
-        setShowKeywordsModal(true);
-    };
-
-    const handleOpenHeadingsModal = (data) => {
-        setHeadingsModalData(data);
-        setShowHeadingsModal(true);
-    };
-
-    const handleOpenBrokenLinksModal = (data) => {
-        setBrokenLinksModalData(data);
-        setShowBrokenLinksModal(true);
-    };
-
-    const handleOpenFixedWidthElementsModal = (data) => {
-        setFixedWidthElementsModalData(data);
-        setShowFixedWidthElementsModal(true);
-    };
-
-    const handleOpenResponsivenessIssuesModal = (data) => {
-        setResponsivenessIssuesModalData(data);
-        setShowResponsivenessIssuesModal(true);
-    };
-    // END MODAL STATES AND HANDLERS
+    const reportRef = useRef(null);
+    const sectionRefs = useRef({});
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -430,12 +617,10 @@ const Report = () => {
             setError("Failed to log out.");
         }
     };
-    
+
     useEffect(() => {
-        if (!websiteUrl || typeof currentUser === 'undefined') {
-            return;
-        }
-        
+        if (!websiteUrl || typeof currentUser === 'undefined') return;
+
         const storedName = localStorage.getItem('agencyName');
         const storedLogo = localStorage.getItem('agencyLogoPreview');
         if (storedName) setAgencyName(storedName);
@@ -449,16 +634,14 @@ const Report = () => {
                 const response = await fetch('https://seo-report-11.onrender.com/api/generate-report', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url: websiteUrl }),
+                    body: JSON.stringify({ url: websiteUrl, keyword: targetKeyword }),
                 });
 
                 if (!response.ok) {
                     let errorMsg = `Failed to fetch report: ${response.status} ${response.statusText}`;
                     try {
                         const errorDetail = await response.json();
-                        if (errorDetail?.detail) {
-                            errorMsg += ` - ${errorDetail.detail}`;
-                        }
+                        if (errorDetail?.detail) errorMsg += ` - ${errorDetail.detail}`;
                     } catch (jsonError) {
                         const rawText = await response.text();
                         errorMsg += ` - ${rawText.substring(0, 100)}...`;
@@ -470,8 +653,10 @@ const Report = () => {
                 console.log("Backend Data:", backendData);
 
                 const groupedSections = {
+                    'Technical SEO': [],
+                    'Page Speed & Core Web Vitals': [],
                     Content: [],
-                    Technical: [],
+                    'Crawlability & Indexability': [],
                     'User Experience': [],
                     Security: [],
                 };
@@ -482,53 +667,68 @@ const Report = () => {
                     return 'good';
                 };
 
-                const getReadabilityStatus = (score) => {
-                    if (score >= 90) return { text: 'Very Easy', status: 'good' };
-                    if (score >= 80) return { text: 'Easy', status: 'good' };
-                    if (score >= 70) return { text: 'Fairly Easy', status: 'good' };
-                    if (score >= 60) return { text: 'Standard', status: 'warning' };
-                    if (score >= 50) return { text: 'Fairly Difficult', status: 'warning' };
-                    if (score >= 30) return { text: 'Difficult', status: 'bad' };
-                    return { text: 'Very Difficult', status: 'bad' };
+                const getStatusFromBackend = (statusText) => {
+                    if (typeof statusText !== 'string') return 'bad';
+                    const lowerStatus = statusText.toLowerCase();
+                    if (lowerStatus.includes('optimal') || lowerStatus.includes('good') || lowerStatus.includes('present') || lowerStatus.includes('found')) return 'good';
+                    if (lowerStatus.includes('partial') || lowerStatus.includes('warning') || lowerStatus.includes('too short') || lowerStatus.includes('too long') || lowerStatus.includes('multiple')) return 'warning';
+                    return 'bad';
                 };
 
                 const getMobileResponsivenessDisplayStatus = (auditData) => {
-                    const { has_viewport_meta, fixed_width_elements } = auditData;
-                    if (has_viewport_meta && fixed_width_elements.length === 0) {
-                        return 'good';
-                    } else if (has_viewport_meta && fixed_width_elements.length > 0) {
-                        return 'warning';
-                    } else {
-                        return 'bad';
-                    }
+                    const hasViewportMeta = auditData?.has_viewport_meta;
+                    const fixedWidthElements = auditData?.fixed_width_elements || [];
+                    if (hasViewportMeta && fixedWidthElements.length === 0) return 'good';
+                    else if (hasViewportMeta && fixedWidthElements.length > 0) return 'warning';
+                    else return 'bad';
                 };
 
                 const getMobileResponsivenessExplanation = (auditData) => {
-                    const { has_viewport_meta, viewport_content, fixed_width_elements, issues } = auditData;
+                    const hasViewportMeta = auditData?.has_viewport_meta;
+                    const viewportContent = auditData?.viewport_content;
+                    const fixedWidthElements = auditData?.fixed_width_elements || [];
+                    const issues = auditData?.issues || [];
                     let explanationText = '';
-
-                    if (!has_viewport_meta) {
-                        explanationText += 'Missing viewport meta tag. This is crucial for proper scaling on mobile devices. ';
-                    } else if (!viewport_content || !viewport_content.includes("width=device-width")) {
-                        explanationText += `Viewport meta tag found but is not correctly configured (content: "${viewport_content || 'N/A'}"). Ensure "width=device-width" is present. `;
-                    } else {
-                        explanationText += 'Viewport meta tag is correctly configured. ';
-                    }
-
-                    if (fixed_width_elements.length > 0) {
-                        explanationText += `Found ${fixed_width_elements.length} HTML elements with fixed pixel widths, which can hinder responsive design. Consider using fluid units (%, em, rem, vw).`;
-                    } else {
-                        explanationText += 'No fixed-width HTML elements detected.';
-                    }
-
+                    if (issues.length > 0) explanationText = issues.find(issue => issue.includes('viewport meta tag')) || 'Multiple issues found.';
+                    else if (!hasViewportMeta) explanationText = 'Missing viewport meta tag. This is crucial for proper scaling on mobile devices.';
+                    else if (!viewportContent || !viewportContent.includes("width=device-width")) explanationText = `Viewport meta tag found but is not correctly configured (content: "${viewportContent || 'N/A'}"). Ensure "width=device-width" is present.`;
+                    else if (fixedWidthElements.length > 0) explanationText = `Found ${fixedWidthElements.length} HTML elements with fixed pixel widths, which can hinder responsive design. Consider using fluid units (%, em, rem, vw).`;
+                    else explanationText = 'No significant mobile responsiveness issues found.';
                     return explanationText;
                 };
 
                 const metadataLengthAudit = backendData.metadata_length_audit || {};
 
-                // --- Content Group ---
-                let titleStatus = metadataLengthAudit.title?.status.toLowerCase() || 'bad';
-                let titleExplanation = metadataLengthAudit.title?.recommendation || 'Title tag analysis failed.';
+                // New PageSpeed & Core Web Vitals Section
+                const pagespeedAudit = backendData.pagespeed_audit || {};
+                const mobileScore = pagespeedAudit?.mobile?.performance_score;
+                let pagespeedStatus = 'good';
+                let pagespeedExplanation = 'Page speed and Core Web Vitals scores are excellent.';
+                
+                if (mobileScore !== undefined) {
+                    if (mobileScore < 50) {
+                        pagespeedStatus = 'bad';
+                        pagespeedExplanation = 'Mobile performance is critically low. This will negatively impact user experience and search rankings.';
+                    } else if (mobileScore < 90) {
+                        pagespeedStatus = 'warning';
+                        pagespeedExplanation = 'Mobile performance is moderate. Consider optimizing to improve user experience and SEO.';
+                    }
+                } else {
+                    pagespeedStatus = 'warning';
+                    pagespeedExplanation = 'Could not fetch PageSpeed data. Check your API key or try again later.';
+                }
+                
+                groupedSections['Page Speed & Core Web Vitals'].push({
+                    id: 'pagespeed-audit',
+                    title: 'Page Speed & Core Web Vitals',
+                    status: pagespeedStatus,
+                    explanation: pagespeedExplanation,
+                    pagespeedData: pagespeedAudit
+                });
+
+                // Content Group
+                const titleStatus = getStatusFromBackend(metadataLengthAudit.title?.status);
+                const titleExplanation = metadataLengthAudit.title?.recommendation || 'Title tag analysis failed.';
                 groupedSections.Content.push({
                     id: 'title-optimization',
                     title: 'Title Optimization',
@@ -537,8 +737,8 @@ const Report = () => {
                     metadataLengthData: metadataLengthAudit.title
                 });
 
-                let metaDescriptionStatus = metadataLengthAudit.meta_description?.status.toLowerCase() || 'bad';
-                let metaDescriptionExplanation = metadataLengthAudit.meta_description?.recommendation || 'Meta description analysis failed.';
+                const metaDescriptionStatus = getStatusFromBackend(metadataLengthAudit.meta_description?.status);
+                const metaDescriptionExplanation = metadataLengthAudit.meta_description?.recommendation || 'Meta description analysis failed.';
                 groupedSections.Content.push({
                     id: 'meta-description',
                     title: 'Meta Description',
@@ -547,17 +747,14 @@ const Report = () => {
                     metadataLengthData: metadataLengthAudit.meta_description
                 });
 
-                const h1Count = backendData.h1_count;
-                const h2Count = backendData.h2_count;
-                const h3Count = backendData.h3_count;
+                const h1Count = backendData.h1_tags?.length || 0;
+                const h2Count = backendData.h2_count || 0;
+                const h3Count = backendData.h3_count || 0;
                 const headingOrder = backendData.heading_order || [];
                 const headingIssues = backendData.heading_issues || [];
                 let headingStatus = 'good';
-                if (h1Count === 0 || headingIssues.some(issue => issue.startsWith('❌'))) {
-                    headingStatus = 'bad';
-                } else if (h1Count > 1 || headingIssues.some(issue => issue.startsWith('⚠️'))) {
-                    headingStatus = 'warning';
-                }
+                if (h1Count === 0 || headingIssues.some(issue => issue.startsWith('❌'))) headingStatus = 'bad';
+                else if (h1Count > 1 || headingIssues.some(issue => issue.startsWith('⚠️'))) headingStatus = 'warning';
                 groupedSections.Content.push({
                     id: 'heading-structure',
                     title: 'Content Structure',
@@ -569,96 +766,76 @@ const Report = () => {
                 });
 
                 const contentAnalysis = backendData.content_analysis || {};
-                const readabilityInfo = getReadabilityStatus(contentAnalysis.flesch_reading_ease_score);
+                const readabilityInfo = getReadabilityStatus(contentAnalysis.flesch_reading_ease_score || 0);
                 let contentAnalysisStatus = readabilityInfo.status;
-                if (!contentAnalysis.top_keywords || contentAnalysis.top_keywords.length === 0) {
-                    contentAnalysisStatus = 'bad';
-                } else if (contentAnalysis.keyword_suggestions && contentAnalysis.keyword_suggestions.some(s => s.startsWith('❌') || s.startsWith('⚠️'))) {
+                if (!contentAnalysis.top_keywords || contentAnalysis.top_keywords.length === 0) contentAnalysisStatus = 'bad';
+                else if (contentAnalysis.keyword_suggestions && contentAnalysis.keyword_suggestions.some(s => s.startsWith('❌') || s.startsWith('⚠️'))) {
                     if (contentAnalysisStatus === 'good') contentAnalysisStatus = 'warning';
                 }
+
+                const keywordReportData = backendData.content_analysis?.keyword_report;
+                if (keywordReportData) {
+                    let keywordReportStatus = 'good';
+                    if (!keywordReportData.presence?.inContent || !keywordReportData.presence?.inTitle || (keywordReportData.density?.density || 0) === 0) keywordReportStatus = 'bad';
+                    else if (!keywordReportData.presence?.inH1 || !keywordReportData.presence?.inMetaDescription || !keywordReportData.presence?.inUrl) keywordReportStatus = 'warning';
+                    if (backendData.deductions?.some(d => d.includes('Keyword density') && d.includes('too high'))) keywordReportStatus = 'bad';
+
+                    groupedSections.Content.push({
+                        id: 'keyword-analysis',
+                        title: 'Keyword Analysis',
+                        status: keywordReportStatus,
+                        explanation: keywordReportStatus === 'good' ? `Target keyword '${targetKeyword}' is well-optimized.` : `Issues found with target keyword '${targetKeyword}'. See details.`,
+                        keywordReportData: keywordReportData,
+                    });
+                }
+
                 groupedSections.Content.push({
-                    id: 'content-analysis',
+                    id: 'content-quality-analysis',
                     title: 'Content Quality Analysis',
                     status: contentAnalysisStatus,
-                    explanation: null,
+                    explanation: contentAnalysis.keyword_suggestions?.length > 0 ? contentAnalysis.keyword_suggestions.join('; ') : 'Content analysis completed. See details.',
                     contentAnalysisData: contentAnalysis,
                 });
 
-                // --- Technical Group ---
-                let withAlt = 0;
-                let total = 0;
-                if (backendData.alt_image_ratio) {
-                    if (typeof backendData.alt_image_ratio === 'string') {
-                        const parts = backendData.alt_image_ratio.split('/');
-                        if (parts.length === 2) {
-                            withAlt = parseInt(parts[0]) || 0;
-                            total = parseInt(parts[1]) || 0;
-                        }
-                    } else if (typeof backendData.alt_image_ratio === 'object') {
-                        withAlt = backendData.alt_image_ratio.withAlt || 0;
-                        total = backendData.alt_image_ratio.total || 0;
-                    }
-                }
-                const imageStatus = total === 0 ? 'good' : withAlt === total ? 'good' : 'warning';
-                groupedSections.Technical.push({
-                    id: 'image-alt',
+                // Technical Group
+                const imageAltAudit = backendData.image_analysis || {};
+                const imageStatus = (imageAltAudit.missing_alt_tags === 0 && imageAltAudit.empty_alt_tags === 0) ? 'good' : 'bad';
+                groupedSections['Technical SEO'].push({
+                    id: 'image-accessibility',
                     title: 'Image Accessibility',
                     status: imageStatus,
-                    explanation: total === 0 ? 'No images found on the page.' : withAlt === total ? `All ${total} images have alt attributes. Great job!` : `${withAlt} out of ${total} images have alt attributes. Add alt text for better accessibility and SEO.`,
+                    explanation: `Found ${imageAltAudit.missing_alt_tags} missing and ${imageAltAudit.empty_alt_tags} empty alt tags out of ${imageAltAudit.total_images} images.`,
+                    imageAltAuditData: imageAltAudit,
                 });
 
                 const speedAudit = backendData.speed_audit || {};
                 const speedAuditStatus = (speedAudit.issues && speedAudit.issues.length === 0) ? 'good' : 'warning';
-                groupedSections.Technical.push({
+                groupedSections['Technical SEO'].push({
                     id: 'speed-heuristics',
                     title: 'Speed Performance',
                     status: speedAuditStatus,
-                    explanation: null,
+                    explanation: speedAudit.issues?.length > 0 ? `Found ${speedAudit.issues.length} potential speed issues. Click for details.` : 'No major speed issues detected.',
                     speedAuditData: speedAudit
                 });
-
-                const sitemap = backendData.sitemap || {};
-                let sitemapStatus = 'bad';
-                if (sitemap.found && sitemap.url_count > 0) {
-                    sitemapStatus = 'good';
-                } else if (sitemap.found && sitemap.url_count === 0) {
-                    sitemapStatus = 'warning';
-                }
-                groupedSections.Technical.push({
-                    id: 'sitemap-validator',
-                    title: 'Sitemap & Crawling',
-                    status: sitemapStatus,
-                    explanation: null,
-                    sitemapData: sitemap
-                });
-
+                
                 const linkAudit = backendData.link_audit || {};
                 const linkAuditStatus = (linkAudit.broken_links_count === 0) ? 'good' : 'bad';
-                groupedSections.Technical.push({
+                groupedSections['Technical SEO'].push({
                     id: 'link-audit',
                     title: 'Link Profile',
                     status: linkAuditStatus,
-                    explanation: null,
+                    explanation: linkAudit.broken_links_count > 0 ? `Found ${linkAudit.broken_links_count} broken links. A high number of broken links can negatively affect user experience and SEO.` : 'No broken links found.',
                     linkAuditData: linkAudit
                 });
 
                 const structuredDataAudit = backendData.structured_data_audit || {};
-                let structuredDataStatus = 'bad';
-                let structuredDataExplanation = '';
-                if (structuredDataAudit.ld_json_found && structuredDataAudit.schema_types.length > 0 && structuredDataAudit.issues.length === 0) {
-                    structuredDataStatus = 'good';
-                    structuredDataExplanation = `Schema Found — Type(s): ${structuredDataAudit.schema_types.join(', ')}`;
-                } else if (structuredDataAudit.ld_json_found && structuredDataAudit.issues.length > 0) {
-                    structuredDataStatus = 'warning';
-                    structuredDataExplanation = `Schema found with issues or no explicit types detected.`;
-                } else if (structuredDataAudit.ld_json_found && structuredDataAudit.schema_types.length === 0) {
-                    structuredDataStatus = 'warning';
-                    structuredDataExplanation = `JSON-LD found, but no @type property detected.`;
-                } else {
-                    structuredDataStatus = 'bad';
+                let structuredDataStatus = getStatusFromBackend(structuredDataAudit.ld_json_found);
+                let structuredDataExplanation = structuredDataAudit.issues?.length > 0 ? structuredDataAudit.issues.join('; ') : 'Structured data found and appears valid.';
+                if (!structuredDataAudit.ld_json_found) {
                     structuredDataExplanation = 'No structured data schema found. Consider adding JSON-LD for rich snippets.';
-                }
-                groupedSections.Technical.push({
+                    structuredDataStatus = 'bad';
+                } else if (structuredDataAudit.issues?.length > 0) structuredDataStatus = 'warning';
+                groupedSections['Technical SEO'].push({
                     id: 'structured-data-schema',
                     title: 'Structured Data Schema',
                     status: structuredDataStatus,
@@ -667,19 +844,10 @@ const Report = () => {
                 });
 
                 const localSeoAudit = backendData.local_seo_audit || {};
-                let localSeoStatus = localSeoAudit.status.toLowerCase().includes('present') ? 'good' :
-                                           localSeoAudit.status.toLowerCase().includes('partial') ? 'warning' : 'bad';
-                
-                let localSeoExplanation = '';
-                if (localSeoAudit.status === "✅ Present") {
-                    localSeoExplanation = "Key local SEO elements (schema, address, phone) are present.";
-                } else if (localSeoAudit.status === "⚠️ Partial") {
-                    localSeoExplanation = "Local SEO implementation is partial. Review details for improvements.";
-                } else {
-                    localSeoExplanation = "Local SEO essentials are missing. Consider implementing schema, physical address, and phone number.";
-                }
-
-                groupedSections.Technical.push({
+                let localSeoStatus = localSeoAudit.status?.toLowerCase().includes('present') ? 'good' :
+                                        localSeoAudit.status?.toLowerCase().includes('partial') ? 'warning' : 'bad';
+                let localSeoExplanation = localSeoAudit.status || 'No local SEO data available.';
+                groupedSections['Technical SEO'].push({
                     id: 'local-seo-audit',
                     title: 'Local SEO',
                     status: localSeoStatus,
@@ -687,8 +855,7 @@ const Report = () => {
                     localSeoAuditData: localSeoAudit
                 });
 
-
-                // --- User Experience Group ---
+                // User Experience Group
                 const mobileResponsivenessAudit = backendData.mobile_responsiveness_audit || {};
                 const mobileResponsivenessStatus = getMobileResponsivenessDisplayStatus(mobileResponsivenessAudit);
                 const mobileResponsivenessExplanation = getMobileResponsivenessExplanation(mobileResponsivenessAudit);
@@ -700,43 +867,35 @@ const Report = () => {
                     mobileResponsivenessData: mobileResponsivenessAudit
                 });
 
-                const ogTwitterAudit = backendData.og_twitter_audit || {};
+                const ogTwitterAudit = backendData.social_media_tags || {};
                 let socialMetaStatus = 'bad';
-                if (ogTwitterAudit.og_title_found && ogTwitterAudit.og_image_found && ogTwitterAudit.og_image_url && ogTwitterAudit.og_image_url.trim() !== '') {
-                    socialMetaStatus = 'good';
-                } else if (ogTwitterAudit.og_title_found || ogTwitterAudit.og_image_found || ogTwitterAudit.twitter_title_found || ogTwitterAudit.twitter_image_found) {
-                    socialMetaStatus = 'warning';
-                } else {
-                    socialMetaStatus = 'bad';
-                }
+                if (ogTwitterAudit?.open_graph?.title?.present && ogTwitterAudit?.open_graph?.image?.present) socialMetaStatus = 'good';
+                else if (ogTwitterAudit?.open_graph?.title?.present || ogTwitterAudit?.open_graph?.image?.present || ogTwitterAudit?.twitter_cards?.title?.present || ogTwitterAudit?.twitter_cards?.image?.present) socialMetaStatus = 'warning';
                 groupedSections['User Experience'].push({
-                    id: 'social-meta-preview',
+                    id: 'social-media-integration',
                     title: 'Social Media Integration',
                     status: socialMetaStatus,
-                    explanation: null,
+                    explanation: ogTwitterAudit?.issues?.length > 0 ? ogTwitterAudit.issues.join('; ') : 'All key social tags are present.',
                     ogTwitterData: ogTwitterAudit
                 });
 
-                // --- Security Group ---
+                // Security Group
+                const canonicalTagData = backendData.canonical || {};
+                let canonicalDisplayStatus = getStatusFromBackend(canonicalTagData?.status);
+                let canonicalExplanation = canonicalTagData?.status || 'No canonical tag data available.';
                 groupedSections.Security.push({
-                    id: 'canonical',
+                    id: 'canonical-url',
                     title: 'Canonical URL',
-                    status: getStatus(backendData.canonical),
-                    explanation: backendData.canonical === 'Missing' ? 'Missing canonical URL tag. This helps prevent duplicate content issues.' : `Canonical URL found: ${backendData.canonical}`
+                    status: canonicalDisplayStatus,
+                    explanation: canonicalExplanation,
+                    canonicalTagData: canonicalTagData
                 });
 
                 groupedSections.Security.push({
-                    id: 'https',
+                    id: 'https-usage',
                     title: 'HTTPS Usage',
                     status: getStatus(backendData.uses_https, true),
                     explanation: backendData.uses_https ? 'Site is using HTTPS. Good for security and SEO.' : 'Site is not using HTTPS. This affects security and search rankings.'
-                });
-
-                groupedSections.Security.push({
-                    id: 'robots',
-                    title: 'Robots.txt',
-                    status: getStatus(backendData.has_robots_txt, true),
-                    explanation: backendData.has_robots_txt ? 'robots.txt file found. Good for search engine crawling control.' : 'Missing or inaccessible robots.txt file.'
                 });
 
                 groupedSections.Security.push({
@@ -746,26 +905,67 @@ const Report = () => {
                     explanation: backendData.has_favicon ? 'Favicon found. Important for branding and user experience.' : 'Missing favicon.ico file.'
                 });
 
-                const allSections = Object.values(groupedSections).flat();
-                const goodCount = allSections.filter(section => section.status === 'good').length;
-                const calculatedOverallScore = Math.round((goodCount / (allSections.length || 1)) * 100);
+                // Crawlability & Indexability Group
+                const crawlabilityData = backendData.crawlability_and_indexability_audit || {};
+                
+                let robotsTxtStatus = crawlabilityData.robots_txt?.present ? 'good' : 'bad';
+                if (crawlabilityData.robots_txt?.issues?.some(i => i.includes('❌'))) robotsTxtStatus = 'bad';
+                else if (crawlabilityData.robots_txt?.issues?.some(i => i.includes('⚠️'))) robotsTxtStatus = 'warning';
+                groupedSections['Crawlability & Indexability'].push({
+                    id: 'robots-txt-analysis',
+                    title: 'Robots.txt Analysis',
+                    status: robotsTxtStatus,
+                    explanation: robotsTxtStatus === 'good' ? 'Robots.txt file found and appears valid.' : 'Robots.txt file not found or has critical issues.',
+                    robotsTxtData: crawlabilityData.robots_txt
+                });
+                
+                const metaRobotsStatus = crawlabilityData.meta_robots?.is_noindex ? 'bad' : crawlabilityData.meta_robots?.is_nofollow ? 'warning' : 'good';
+                groupedSections['Crawlability & Indexability'].push({
+                    id: 'meta-robots-analysis',
+                    title: 'Meta Robots Tag',
+                    status: metaRobotsStatus,
+                    explanation: crawlabilityData.meta_robots?.issues?.find(i => i.startsWith('❌')) || crawlabilityData.meta_robots?.issues?.find(i => i.includes('⚠️')) || 'Page is indexable and followable by default.',
+                    metaRobotsData: crawlabilityData.meta_robots
+                });
+                
+                let httpStatus = 'good';
+                if (Object.values(crawlabilityData.http_status_and_redirects || {}).some(r => r.issues.some(i => i.includes('❌')))) httpStatus = 'bad';
+                else if (Object.values(crawlabilityData.http_status_and_redirects || {}).some(r => r.issues.some(i => i.includes('⚠️')))) httpStatus = 'warning';
+                groupedSections['Crawlability & Indexability'].push({
+                    id: 'http-status-and-redirects',
+                    title: 'HTTP Status & Redirects',
+                    status: httpStatus,
+                    explanation: httpStatus === 'good' ? 'Main pages respond with 200 OK and no long redirect chains.' : 'Issues with HTTP status codes or redirects found.',
+                    httpStatusAndRedirectsData: crawlabilityData.http_status_and_redirects
+                });
+                
+                let sitemapAuditStatus = 'good';
+                if (!crawlabilityData.sitemap?.found) sitemapAuditStatus = 'bad';
+                else if (crawlabilityData.sitemap?.invalid_urls?.length > 0) sitemapAuditStatus = 'warning';
+                groupedSections['Crawlability & Indexability'].push({
+                    id: 'sitemap-validation',
+                    title: 'Sitemap Validation',
+                    status: sitemapAuditStatus,
+                    explanation: crawlabilityData.sitemap?.status || 'Sitemap validation failed.',
+                    sitemapValidationData: crawlabilityData.sitemap
+                });
+
+                const overallScore = calculateOverallScore(groupedSections, backendData);
 
                 const processedReportData = {
                     url: websiteUrl,
                     timestamp: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
-                    overallScore: backendData.score || calculatedOverallScore,
+                    overallScore: overallScore,
                     groupedSections: groupedSections,
                     backendData: backendData,
-                    metadata_length_audit: backendData.metadata_length_audit,
                 };
 
                 setReportData(processedReportData);
-                
+
                 if (currentUser && currentUser.uid) {
                     try {
                         const userDocRef = doc(db, 'users', currentUser.uid);
                         const userDocSnap = await getDoc(userDocRef);
-
                         if (userDocSnap.exists()) {
                             const userData = userDocSnap.data();
                             const existingHistory = userData.reportHistory || [];
@@ -773,26 +973,16 @@ const Report = () => {
                                 url: websiteUrl,
                                 timestamp: new Date(),
                                 overallScore: processedReportData.overallScore,
-                                summary: {
-                                    overallScore: processedReportData.overallScore,
-                                },
+                                summary: { overallScore: processedReportData.overallScore },
                             };
                             const updatedHistory = [newReportEntry, ...existingHistory.slice(0, 9)];
-
-                            await updateDoc(userDocRef, {
-                                reportHistory: updatedHistory,
-                            });
+                            await updateDoc(userDocRef, { reportHistory: updatedHistory });
                             console.log("Report history updated in Firestore.");
-                        } else {
-                            console.log("User document not found.");
-                        }
+                        } else console.log("User document not found.");
                     } catch (saveError) {
                         console.error("Error saving report from Report page:", saveError);
                     }
-                } else if (currentUser === null) {
-                    console.warn("User not logged in, report not saved to history.");
-                }
-
+                } else if (currentUser === null) console.warn("User not logged in, report not saved to history.");
             } catch (err) {
                 console.error("Error fetching report:", err);
                 setError(err.message || 'Something went wrong while fetching the report.');
@@ -800,30 +990,37 @@ const Report = () => {
                 setLoading(false);
             }
         };
-
         fetchReport();
-    }, [websiteUrl, currentUser, db]);
-    
-    // The handleDownloadPdf function is no longer needed with PDFDownloadLink
-    
+    }, [websiteUrl, targetKeyword, currentUser]);
+
     const getScoreColor = (score) => {
         if (score >= 80) return '#22C55E';
         if (score >= 60) return '#F97316';
         return '#EF4444';
     };
 
-    const calculateCategoryScore = (categoryName) => {
-        const sections = reportData?.groupedSections?.[categoryName] || [];
-        const totalSections = sections.length;
-        if (totalSections === 0) return { score: 0, max: 0, percentage: 0 };
-        let goodCount = 0;
-        sections.forEach(section => {
-            if (section.status === 'good') {
-                goodCount++;
-            }
-        });
-        const percentage = Math.round((goodCount / totalSections) * 100);
-        return { score: goodCount, max: totalSections, percentage: percentage };
+    const getStatusColorClass = (status) => {
+        if (status === 'good') return 'bg-green-100 text-green-800 border-green-300';
+        if (status === 'warning') return 'bg-orange-100 text-orange-800 border-orange-300';
+        return 'bg-red-100 text-red-800 border-red-300';
+    };
+
+    const getScoreBadgeClass = (totalIssues) => {
+        if (totalIssues >= 5) return 'bg-red-500 text-white';
+        if (totalIssues >= 2) return 'bg-orange-500 text-white';
+        return 'bg-green-500 text-white';
+    };
+
+    const getCategoryScorePercentage = (categoryName) => {
+        const { percentage } = calculateCategoryScore(categoryName, groupedSections, backendData);
+        return percentage;
+    };
+
+    const getCategoryStatus = (categoryName) => {
+        const counts = getTabStatusCounts(groupedSections?.[categoryName] || []);
+        if (counts.bad > 0) return 'bad';
+        if (counts.warning > 0) return 'warning';
+        return 'good';
     };
 
     const getTabStatusCounts = (tabSections) => {
@@ -834,106 +1031,93 @@ const Report = () => {
         return counts;
     };
 
+    const { url: reportUrl, overallScore = 0, groupedSections = {}, backendData = {} } = reportData || {};
 
-    const {
-        url: reportUrl,
-        overallScore = 0,
-        groupedSections = {},
-        backendData = {}
-    } = reportData || {};
+    const categoryColors = {
+        'Content': '#5C6BC0',
+        'Technical SEO': '#42A5F5',
+        'Page Speed & Core Web Vitals': '#3b82f6',
+        'User Experience': '#FFCA28',
+        'Security': '#EF5350',
+        'Crawlability & Indexability': '#AB47BC'
+    };
 
-    const categoryBreakdownData = [
-        { name: 'Overall SEO Score', id: 'overall', color: '#3b82f6' },
-        { name: 'Content', id: 'content', color: '#22C55E' },
-        { name: 'Technical', id: 'technical', color: '#22C55E' },
-        { name: 'User Experience', id: 'user_experience', color: '#FACC15' },
-        { name: 'Security', id: 'security', color: '#84CC16' },
-        { name: 'Off-Page', id: 'off_page', color: '#A855F7' },
-    ].map(category => {
-        let scoreData;
-        if (category.id === 'overall') {
-            scoreData = { score: overallScore, max: 100, percentage: overallScore };
-        } else if (category.id === 'off_page') {
-             scoreData = { score: 0, max: 5, percentage: 0 };
-        }
-        else {
-            scoreData = calculateCategoryScore(category.name);
-        }
+    const categoryBreakdownData = Object.keys(groupedSections).map(categoryName => {
+        const { percentage } = calculateCategoryScore(categoryName, groupedSections, backendData);
+        return { name: categoryName, score: percentage, color: categoryColors[categoryName] || '#9E9E9E' };
+    }).filter(cat => cat.score > 0);
 
-        return {
-            ...category,
-            currentScore: scoreData.score,
-            maxScore: scoreData.max,
-            percentage: scoreData.percentage
-        };
-    });
+    const totalIssueCount = Object.values(groupedSections).reduce((acc, sections) => {
+        const counts = getTabStatusCounts(sections);
+        return acc + counts.bad + counts.warning;
+    }, 0);
+    const issueStatus = totalIssueCount >= 5 ? 'Critical' : totalIssueCount >= 2 ? 'Warning' : 'Good';
 
-    const tabNames = Object.keys(groupedSections);
+    const handleOpenHeadingsModal = (headingOrder, headingIssues) => {
+        setHeadingsModalData({ headingOrder, headingIssues });
+        setShowHeadingsModal(true);
+    };
 
+    const handleOpenBrokenLinksModal = (data) => {
+        setBrokenLinksModalData(data);
+        setShowBrokenLinksModal(true);
+    };
+
+    const handleOpenFixedWidthElementsModal = (data) => {
+        setFixedWidthElementsModalData(data);
+        setShowFixedWidthElementsModal(true);
+    };
+
+    const handleOpenResponsivenessIssuesModal = (data) => {
+        setResponsivenessIssuesModalData(data);
+        setShowResponsivenessIssuesModal(true);
+    };
+
+    const handleOpenRedirectsModal = (data) => {
+        setRedirectsModalData(data);
+        setShowRedirectsModal(true);
+    };
+
+    const handleOpenTopKeywordsModal = (data) => {
+        setKeywordsModalData(prev => ({ ...prev, top_keywords: data }));
+        setShowTopKeywordsModal(true);
+    };
+
+    const handleOpenSuggestionsModal = (data) => {
+        setKeywordsModalData(prev => ({ ...prev, keyword_suggestions: data }));
+        setShowSuggestionsModal(true);
+    };
 
     if (loading) {
-        const brandColors = {
-            primary: '#8A4AF3',
-            secondary: '#3B82F6',
-            accent: '#C084FC'
-        };
-
+        const brandColors = { primary: '#8A4AF3', secondary: '#3B82F6', accent: '#C084FC' };
         const Dot = ({ delay }) => (
             <motion.span
                 className="inline-block w-3 h-3 mx-1 rounded-full bg-gradient-to-br from-purple-400 to-blue-500"
-                variants={{
-                    animate: {
-                        y: ["0%", "-50%", "0%"],
-                        scale: [1, 1.2, 1],
-                        opacity: [0.8, 1, 0.8]
-                    },
-                }}
-                transition={{
-                    duration: 1.5,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                    delay: delay,
-                }}
+                variants={{ animate: { y: ["0%", "-50%", "0%"], scale: [1, 1.2, 1], opacity: [0.8, 1, 0.8] } }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay }}
             />
         );
-
         return (
-            <div
-                className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-purple-100 text-gray-800 dark:from-gray-900 dark:to-gray-800 dark:text-gray-100 transition-colors duration-500 relative overflow-hidden"
-            >
+            <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-white to-blue-50 text-gray-800 dark:from-gray-900 dark:to-gray-800 dark:text-gray-100 transition-colors duration-500 relative overflow-hidden">
                 <motion.div
                     className="absolute inset-0 z-0 opacity-10"
                     initial={{ scale: 1, rotate: 0 }}
                     animate={{ scale: 1.1, rotate: 5 }}
                     transition={{ repeat: Infinity, duration: 20, ease: "linear", repeatType: "mirror" }}
-                    style={{
-                        backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.2' fill-rule='evenodd'%3E%3Cpath d='M0 40L40 0H20L0 20ZM40 40V20L20 40Z'/%3E%3C/g%3E%3C/svg%3E")`,
-                        backgroundSize: '80px 80px',
-                    }}
-                ></motion.div>
-
+                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.2' fill-rule='evenodd'%3E%3Cpath d='M0 40L40 0H20L0 20ZM40 40V20L20 40Z'/%3E%3C/g%3E%3C/svg%3E")`, backgroundSize: '80px 80px' }}
+                />
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8 }}
-                    className="relative z-10 text-center bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl flex flex-col items-center max-w-md w-11/12"
+                    className="relative z-10 text-center bg-white/90 backdrop-blur-md p-8 rounded-2xl shadow-xl flex flex-col items-center max-w-md w-11/12"
                 >
-                    <h1 className="text-4xl font-extrabold text-gray-900 dark:text-gray-100 mb-4 tracking-tight">
-                        <span style={{ color: brandColors.primary }}>CrestNova.Sol</span>
-                    </h1>
-                    <p className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-6">
-                        Generating your Premium SEO report...
-                    </p>
-
+                    <h1 className="text-4xl font-extrabold text-gray-900 mb-4 tracking-tight"><span style={{ color: brandColors.primary }}>CrestNova.Sol</span></h1>
+                    <p className="text-xl font-semibold text-gray-700 mb-6">Generating your Premium SEO report...</p>
                     <div className="flex justify-center items-center h-12 mb-4">
-                        <Dot delay={0} />
-                        <Dot delay={0.2} />
-                        <Dot delay={0.4} />
+                        <Dot delay={0} /><Dot delay={0.2} /><Dot delay={0.4} />
                     </div>
-
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Analyzing over 50+ SEO parameters for optimal performance.
-                    </p>
+                    <p className="text-sm text-gray-500">Analyzing over 50+ SEO parameters for optimal performance.</p>
                 </motion.div>
             </div>
         );
@@ -941,218 +1125,174 @@ const Report = () => {
 
     if (error || !reportData) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 p-4 transition-colors duration-500">
+            <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-white to-blue-50 dark:from-gray-900 dark:to-gray-800 p-4 transition-colors duration-500">
                 <p className="text-red-500 text-lg font-semibold text-center mb-4">{error}</p>
-                <button
-                    onClick={() => navigate('/')}
-                    className="bg-blue-500 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:bg-blue-600 transform hover:-translate-y-1 transition"
-                >
-                    Back to Home
-                </button>
+                <button onClick={() => navigate('/')} className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition">Back to Home</button>
             </div>
         );
     }
 
+    const MainScorecard = () => (
+        <motion.div
+            className="bg-white/90 backdrop-blur-md p-8 rounded-xl shadow-lg flex flex-col md:flex-row items-center md:items-start space-y-8 md:space-y-0 md:space-x-12"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+        >
+            <div className="flex-1 flex flex-col space-y-4 w-full">
+                <div className="flex justify-between items-center text-gray-600 font-semibold mb-4">
+                    <span className="text-lg">On-page score</span>
+                    <div className="flex items-center space-x-2">
+                        <span>Issues: {totalIssueCount}</span>
+                        <span className={`text-sm font-bold px-3 py-1 rounded-full ${getScoreBadgeClass(totalIssueCount)}`}>
+                            {issueStatus}
+                        </span>
+                        <Info className="w-4 h-4 text-gray-400" />
+                    </div>
+                </div>
+                <div className="flex items-center space-x-8">
+                    <div className="relative w-40 h-40 flex-shrink-0">
+                        <Circle
+                            percent={overallScore}
+                            strokeWidth={7}
+                            strokeColor={overallScore >= 80 ? '#67C924' : overallScore >= 60 ? '#FFD166' : '#EF4444'}
+                            trailColor="#E5E7EB"
+                            trailWidth={7}
+                        />
+                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+                            <span className="text-4xl font-extrabold text-gray-900">{overallScore}%</span>
+                            <p className="text-xs text-gray-500 mt-1">On-page score</p>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+                        {Object.keys(groupedSections).map((categoryName, index) => (
+                            <div key={index} className="flex flex-col space-y-1">
+                                <div className="flex justify-between items-center text-sm font-medium">
+                                    <span className="text-gray-700">{categoryName}</span>
+                                    <span className="text-gray-900 font-bold">{getCategoryScorePercentage(categoryName)}%</span>
+                                </div>
+                                <Line
+                                    percent={getCategoryScorePercentage(categoryName)}
+                                    strokeWidth={3}
+                                    strokeColor={
+                                        getCategoryStatus(categoryName) === 'good' ? '#22C55E' :
+                                        getCategoryStatus(categoryName) === 'warning' ? '#F97316' :
+                                        '#EF4444'
+                                    }
+                                    trailColor="#E5E7EB"
+                                    trailWidth={3}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </motion.div>
+    );
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 font-sans text-gray-800 dark:text-gray-100 transition-colors duration-500">
+        <div className="min-h-screen bg-gradient-to-br from-white to-blue-50 font-sans text-gray-800 dark:from-gray-900 dark:to-gray-800 dark:text-gray-100 transition-colors duration-500 relative overflow-hidden">
+            <div className="absolute inset-0 opacity-10">
+                <svg className="w-full h-full" viewBox="0 0 800 400">
+                    <defs>
+                        <linearGradient id="reportGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.1" />
+                            <stop offset="50%" stopColor="#8b5cf6" stopOpacity="0.2" />
+                            <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.1" />
+                        </linearGradient>
+                    </defs>
+                    <g fill="url(#reportGradient)" opacity="0.4">
+                        <polygon points="100,100 150,50 200,100 150,150" />
+                        <polygon points="500,150 550,100 600,150 550,200" />
+                    </g>
+                </svg>
+            </div>
             <Navbar user={currentUser} handleLogout={handleLogout} />
-
-            <main className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
-                <div ref={reportRef}>
-                    <motion.section
-                        className="bg-white p-6 rounded-xl shadow-lg mb-8 dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6 }}
+            <main className="container mx-auto py-8 px-4 sm:px-6 lg:px-8 max-w-6xl relative z-10">
+                <MainScorecard />
+                <div className="space-y-12 mt-12">
+                    {Object.keys(groupedSections).map(categoryName => (
+                        <div key={categoryName}>
+                            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}>
+                                <ElegantDivider categoryName={categoryName} />
+                            </motion.div>
+                            <section className="flex flex-col space-y-6 mt-6">
+                                <AnimatePresence mode="wait">
+                                    {groupedSections?.[categoryName]?.map((section, index) => (
+                                        <ReportCard
+                                            key={section.id}
+                                            title={section.title}
+                                            status={section.status}
+                                            explanation={section.explanation}
+                                            action={section.action}
+                                            contentAnalysisData={section.id === 'content-quality-analysis' ? section.contentAnalysisData : null}
+                                            keywordReportData={section.id === 'keyword-analysis' ? section.keywordReportData : null}
+                                            onOpenTopKeywordsModal={section.id === 'content-quality-analysis' ? () => handleOpenTopKeywordsModal(section.contentAnalysisData?.top_keywords || []) : null}
+                                            onOpenSuggestionsModal={section.id === 'content-quality-analysis' ? () => handleOpenSuggestionsModal(section.contentAnalysisData?.keyword_suggestions || []) : null}
+                                            headingCounts={section.id === 'heading-structure' ? section.headingCounts : null}
+                                            headingOrder={section.id === 'heading-structure' ? section.headingOrder : null}
+                                            headingIssues={section.id === 'heading-structure' ? section.headingIssues : null}
+                                            onOpenHeadingsModal={section.id === 'heading-structure' ? () => handleOpenHeadingsModal(section.headingOrder || [], section.headingIssues || []) : null}
+                                            speedAuditData={section.id === 'speed-heuristics' ? section.speedAuditData : null}
+                                            linkAuditData={section.id === 'link-audit' ? section.linkAuditData : null}
+                                            onOpenBrokenLinksModal={section.id === 'link-audit' ? () => handleOpenBrokenLinksModal(section.linkAuditData?.broken_links || []) : null}
+                                            ogTwitterData={section.id === 'social-media-integration' ? section.ogTwitterData : null}
+                                            mobileResponsivenessData={section.id === 'mobile-responsiveness-audit' ? section.mobileResponsivenessData : null}
+                                            onOpenFixedWidthElementsModal={section.id === 'mobile-responsiveness-audit' ? () => handleOpenFixedWidthElementsModal(section.mobileResponsivenessData?.fixed_width_elements || []) : null}
+                                            onOpenResponsivenessIssuesModal={section.id === 'mobile-responsiveness-audit' ? () => handleOpenResponsivenessIssuesModal(section.mobileResponsivenessData?.issues || []) : null}
+                                            structuredDataAuditData={section.id === 'structured-data-schema' ? section.structuredDataAuditData : null}
+                                            localSeoAuditData={section.id === 'local-seo-audit' ? section.localSeoAuditData : null}
+                                            metadataLengthData={section.metadataLengthData}
+                                            imageAltAuditData={section.id === 'image-accessibility' ? section.imageAltAuditData : null}
+                                            canonicalTagData={section.id === 'canonical-url' ? section.canonicalTagData : null}
+                                            overallScore={overallScore}
+                                            robotsTxtData={section.id === 'robots-txt-analysis' ? section.robotsTxtData : null}
+                                            metaRobotsData={section.id === 'meta-robots-analysis' ? section.metaRobotsData : null}
+                                            httpStatusAndRedirectsData={section.id === 'http-status-and-redirects' ? section.httpStatusAndRedirectsData : null}
+                                            sitemapValidationData={section.id === 'sitemap-validation' ? section.sitemapValidationData : null}
+                                            onOpenRedirectsModal={section.id === 'http-status-and-redirects' ? () => handleOpenRedirectsModal(section.httpStatusAndRedirectsData) : null}
+                                            // Pass new PageSpeed data
+                                            pagespeedData={section.id === 'pagespeed-audit' ? section.pagespeedData : null}
+                                        />
+                                    ))}
+                                </AnimatePresence>
+                            </section>
+                        </div>
+                    ))}
+                </div>
+                <div className="mt-12 text-center">
+                    <PDFDownloadLink
+                        document={<PDFReport reportData={reportData} />}
+                        fileName={`SEO-Report-${reportUrl.replace(/[^a-zA-Z0-9]/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`}
+                        className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:shadow-lg transform hover:-translate-y-1 transition-all"
                     >
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                                CrestNova.Sol
-                            </h2>
-                            <div className="flex items-center space-x-2">
-                                <button className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                                    <Sun className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-                                </button>
-                                <button
-                                    onClick={() => window.location.reload()}
-                                    className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition"
-                                    title="Rescan Website"
-                                >
-                                    <Repeat className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-                                </button>
-                            </div>
-                        </div>
-
-                        <h3 className="text-3xl font-extrabold text-gray-900 dark:text-gray-100 mb-6">
-                            Premium SEO Report
-                        </h3>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-6 items-center">
-                            <div className="md:col-span-1 flex flex-col items-center justify-center p-4">
-                                <div className="relative w-40 h-40">
-                                    <Circle
-                                        percent={overallScore}
-                                        strokeWidth={8}
-                                        strokeColor="#3b82f6"
-                                        trailColor="#e0e0e0"
-                                        trailWidth={8}
-                                        strokeLinecap="round"
-                                    />
-                                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
-                                        <span className="text-4xl font-bold text-gray-900 dark:text-gray-100">
-                                            {overallScore}
-                                        </span>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Total score</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="md:col-span-2 lg:col-span-1 space-y-3 p-4">
-                                {categoryBreakdownData.map((category) => (
-                                    <div key={category.name} className="flex items-center space-x-3">
-                                        <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: category.color }}></span>
-                                        <span className="flex-grow text-sm font-medium text-gray-700 dark:text-gray-300">{category.name}</span>
-                                        <div className="relative w-24 bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                                            <motion.div
-                                                className="h-2.5 rounded-full"
-                                                style={{
-                                                    width: `${category.percentage}%`,
-                                                    backgroundColor: category.color,
-                                                }}
-                                                initial={{ width: 0 }}
-                                                animate={{ width: `${category.percentage}%` }}
-                                                transition={{ duration: 0.8 }}
-                                            />
-                                        </div>
-                                        <span className="w-10 text-right text-sm font-medium text-gray-600 dark:text-gray-400">
-                                            {category.currentScore}/{category.maxScore}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="hidden lg:block lg:col-span-1"></div>
-                        </div>
-
-                        <div className="mt-8 flex flex-wrap justify-between items-center space-y-4 sm:space-y-0">
-                            <div className="flex-grow flex flex-wrap justify-center sm:justify-start">
-                                <nav className="flex space-x-2 sm:space-x-4 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-                                    {tabNames.map((tab) => {
-                                        const counts = getTabStatusCounts(groupedSections?.[tab] || []);
-                                        return (
-                                            <button
-                                                key={tab}
-                                                onClick={() => setActiveTab(tab)}
-                                                className={`
-                                                    ${activeTab === tab
-                                                        ? 'bg-white text-indigo-600 dark:bg-gray-900 dark:text-indigo-400 shadow'
-                                                        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}
-                                                    relative px-4 py-2 rounded-md font-medium text-sm transition-colors duration-200 ease-in-out flex items-center
-                                                `}
-                                            >
-                                                {tab}
-                                                <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                                    counts.bad > 0 ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                                                    counts.warning > 0 ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
-                                                    'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                                    }`}>
-                                                    {counts.bad + counts.warning + counts.good}
-                                                </span>
-                                            </button>
-                                        );
-                                    })}
-                                </nav>
-                            </div>
-
-                            <div className="flex-shrink-0 flex space-x-2">
-                                {reportData && (
-                                    <PDFDownloadLink
-                                        document={
-                                            <PDFReport
-                                                reportData={reportData}
-                                                agencyName={agencyName}
-                                                agencyLogoPreview={agencyLogoPreview}
-                                            />
-                                        }
-                                        fileName={`SEO_Report_${(reportData?.url || 'untitled').replace(/https?:\/\//, '').replace(/\//g, '_')}.pdf`}
-                                    >
-                                        {({ loading }) => (
-                                            <motion.button
-                                                disabled={loading}
-                                                className={`py-2.5 px-5 rounded-lg shadow-md font-bold text-sm flex items-center justify-center transition-colors duration-200
-                                                    ${loading
-                                                        ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                                                        : 'bg-blue-600 text-white hover:bg-blue-700'}`
-                                                    }
-                                                whileHover={{ scale: loading ? 1 : 1.02 }}
-                                                whileTap={{ scale: loading ? 1 : 0.98 }}
-                                            >
-                                                <FileDown className="w-4 h-4 mr-2" />
-                                                {loading ? 'Generating PDF...' : 'Download Report'}
-                                            </motion.button>
-                                        )}
-                                    </PDFDownloadLink>
-                                )}
-                                <motion.button
-                                    className="bg-blue-600 text-white font-bold py-2.5 px-5 rounded-lg shadow-md hover:bg-blue-700 transform hover:-translate-y-0.5 transition flex items-center justify-center text-sm"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                >
-                                    <AlertTriangle className="w-4 h-4 mr-2" />
-                                    Fix Critical Issues
-                                </motion.button>
-                            </div>
-                        </div>
-                    </motion.section>
-
-                    <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {groupedSections?.[activeTab]?.map((section) => (
-                            <ReportCard
-                                key={section.id}
-                                title={section.title}
-                                status={section.status}
-                                explanation={section.explanation}
-                                action={section.action}
-                                onOpenKeywordsModal={section.id === 'content-analysis' ? handleOpenKeywordsModal : null}
-                                contentAnalysisData={section.id === 'content-analysis' ? backendData.content_analysis : null}
-                                onOpenHeadingsModal={section.id === 'heading-structure' ? handleOpenHeadingsModal : null}
-                                headingCounts={section.id === 'heading-structure' ? section.headingCounts : null}
-                                headingOrder={section.id === 'heading-structure' ? section.headingOrder : null}
-                                headingIssues={section.id === 'heading-structure' ? section.headingIssues : null}
-                                speedAuditData={section.id === 'speed-heuristics' ? backendData.speed_audit : null}
-                                sitemapData={section.id === 'sitemap-validator' ? backendData.sitemap : null}
-                                linkAuditData={section.id === 'link-audit' ? backendData.link_audit : null}
-                                onOpenBrokenLinksModal={section.id === 'link-audit' ? handleOpenBrokenLinksModal : null}
-                                ogTwitterData={section.id === 'social-meta-preview' ? backendData.og_twitter_audit : null}
-                                mobileResponsivenessData={section.id === 'mobile-responsiveness-audit' ? backendData.mobile_responsiveness_audit : null}
-                                onOpenFixedWidthElementsModal={section.id === 'mobile-responsiveness-audit' ? handleOpenFixedWidthElementsModal : null}
-                                onOpenResponsivenessIssuesModal={section.id === 'mobile-responsiveness-audit' ? handleOpenResponsivenessIssuesModal : null}
-                                structuredDataAuditData={section.id === 'structured-data-schema' ? backendData.structured_data_audit : null}
-                                localSeoAuditData={section.id === 'local-seo-audit' ? backendData.local_seo_audit : null}
-                                metadataLengthData={section.metadataLengthData}
-                                overallScore={overallScore}
-                            />
-                        ))}
-                    </section>
+                        {({ loading }) => (loading ? 'Generating PDF...' : 'Download Full Report')}
+                        <FileDown className="w-5 h-5 ml-2" />
+                    </PDFDownloadLink>
                 </div>
             </main>
 
             <AppModals
-                showKeywordsModal={showKeywordsModal}
-                setShowKeywordsModal={setShowKeywordsModal}
-                keywordsData={keywordsModalData}
+                showTopKeywordsModal={showTopKeywordsModal}
+                setShowTopKeywordsModal={setShowTopKeywordsModal}
+                keywordsModalData={keywordsModalData}
+                showSuggestionsModal={showSuggestionsModal}
+                setShowSuggestionsModal={setShowSuggestionsModal}
                 showHeadingsModal={showHeadingsModal}
                 setShowHeadingsModal={setShowHeadingsModal}
                 headingsData={headingsModalData}
                 showBrokenLinksModal={showBrokenLinksModal}
                 setShowBrokenLinksModal={setShowBrokenLinksModal}
-                brokenLinksData={brokenLinksModalData}
+                brokenLinksModalData={brokenLinksModalData}
                 showFixedWidthElementsModal={showFixedWidthElementsModal}
                 setShowFixedWidthElementsModal={setShowFixedWidthElementsModal}
                 fixedWidthElementsModalData={fixedWidthElementsModalData}
                 showResponsivenessIssuesModal={showResponsivenessIssuesModal}
                 setShowResponsivenessIssuesModal={setShowResponsivenessIssuesModal}
                 responsivenessIssuesModalData={responsivenessIssuesModalData}
+                showRedirectsModal={showRedirectsModal}
+                setShowRedirectsModal={setShowRedirectsModal}
+                redirectsModalData={redirectsModalData}
             />
 
             <Footer />
