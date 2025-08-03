@@ -1043,7 +1043,8 @@ router.post('/generate-report', async (req, res) => {
             return res.status(400).json({ detail: `Failed to connect to the website: ${e.message}` });
         }
 
-        const $ = cheerio.load(response.data);
+        const $ = load(response.data);
+
         logger.info("HTML parsed successfully");
 
         let currentScore = 100;
