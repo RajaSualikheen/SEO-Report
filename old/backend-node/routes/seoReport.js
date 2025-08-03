@@ -582,7 +582,7 @@ const auditLocalSeo = (soup, visibleText) => {
 
     const ldJsonScripts = soup('script[type="application/ld+json"]');
     ldJsonScripts.each((i, el) => {
-        const scriptContent = cheerio(el).html();
+        const scriptContent = $(el).html();
         if (scriptContent) {
             try {
                 const json_data = JSON.parse(scriptContent);
