@@ -6,7 +6,7 @@ import fetch from 'node-fetch'; // for downloading images as base64
 import seoReportRouter from './routes/seoReport.js';
 
 const app = express();
-
+const PORT = process.env.PORT || 4000;
 // Allow Firebase frontend + local dev
 app.use(cors({
   origin: [
@@ -133,4 +133,4 @@ app.post('/generate-report', async (req, res) => {
 });
 
 // Start server
-app.listen(4000, () => console.log('Server running on port 4000'));
+app.listen(PORT, () => console.log('Server running on port 4000'));
