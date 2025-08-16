@@ -12,7 +12,8 @@ const PORT = process.env.PORT || 4000;
 app.use(cors({
   origin: [
     'https://seoanalyzerauth.web.app',
-    'http://localhost:4000'
+    'http://localhost:4000',
+    'http://localhost:5173'
   ],
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -115,8 +116,8 @@ app.post('/generate-pdf', async (req, res) => {
   }
 });
 
-// Mount the seoReportRouter for the main analysis
+// Mount the seoReportRouter, which contains the /generate-report route
 app.use('/', seoReportRouter);
 
-// Start server
+// Start server on the correct port
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
