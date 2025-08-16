@@ -4,20 +4,24 @@ import bodyParser from 'body-parser';
 import puppeteer from 'puppeteer';
 import fetch from 'node-fetch'; // for downloading images as base64
 import seoReportRouter from './routes/seoReport.js';
-const app = express();
-app.use(cors({ origin: '*', credentials: true }));
-app.use(bodyParser.json({ limit: '50mb' }));
 
-let browser; // Persistent Puppeteer instance
+const app = express();
+
+// Allow Firebase frontend + local dev
 app.use(cors({
   origin: [
-    'https://seoanalyzerauth.web.app',   // your Firebase hosting
-    'http://localhost:4000'              // local dev frontend
+    'https://seoanalyzerauth.web.app',   // Firebase hosting
+    'http://localhost:4000'              // Local dev frontend
   ],
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-// Start persistent browser when server starts
+
+app.use(bodyParser.json({ limit: '50mb' }));
+
+let browser; // Persistent Puppeteer instance
+
+// Start persistent browser on server start
 (async () => {
   browser = await puppeteer.launch({
     headless: 'new',
@@ -25,7 +29,9 @@ app.use(cors({
   });
   console.log('Puppeteer browser started');
 })();
+
 app.use('/', seoReportRouter);
+
 // Helper: download image and return base64 string
 async function toBase64(url) {
   try {
@@ -39,7 +45,7 @@ async function toBase64(url) {
   }
 }
 
-// Replace this with your *real styled HTML template* for the report
+// HTML generator for reports
 async function generateHTML(reportData, agencyName, agencyLogoPreview) {
   const logoBase64 = agencyLogoPreview
     ? await toBase64(agencyLogoPreview)
@@ -73,29 +79,34 @@ async function generateHTML(reportData, agencyName, agencyLogoPreview) {
   `;
 }
 
-// PDF generation route
+// Core PDF generation function
+async function generatePDF(reportData, agencyName, agencyLogoPreview) {
+  if (!browser) {
+    browser = await puppeteer.launch({
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+  }
+
+  const page = await browser.newPage();
+  const html = await generateHTML(reportData, agencyName, agencyLogoPreview);
+  await page.setContent(html, { waitUntil: 'load' });
+
+  const pdfBuffer = await page.pdf({
+    format: 'A4',
+    printBackground: true,
+    margin: { top: '1cm', right: '1cm', bottom: '1cm', left: '1cm' }
+  });
+
+  await page.close();
+  return pdfBuffer;
+}
+
+// Route: /generate-pdf
 app.post('/generate-pdf', async (req, res) => {
   try {
     const { reportData, agencyName, agencyLogoPreview } = req.body;
-
-    if (!browser) {
-      browser = await puppeteer.launch({
-        headless: 'new',
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-      });
-    }
-
-    const page = await browser.newPage();
-    const html = await generateHTML(reportData, agencyName, agencyLogoPreview);
-    await page.setContent(html, { waitUntil: 'load' });
-
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: { top: '1cm', right: '1cm', bottom: '1cm', left: '1cm' }
-    });
-
-    await page.close();
+    const pdfBuffer = await generatePDF(reportData, agencyName, agencyLogoPreview);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename="seo_report.pdf"');
@@ -106,4 +117,20 @@ app.post('/generate-pdf', async (req, res) => {
   }
 });
 
+// Alias Route: /generate-report (for your frontend)
+app.post('/generate-report', async (req, res) => {
+  try {
+    const { reportData, agencyName, agencyLogoPreview } = req.body;
+    const pdfBuffer = await generatePDF(reportData, agencyName, agencyLogoPreview);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="seo_report.pdf"');
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Report Generation Error:', err);
+    res.status(500).json({ error: 'Failed to generate report' });
+  }
+});
+
+// Start server
 app.listen(4000, () => console.log('Server running on port 4000'));
