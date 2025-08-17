@@ -26,7 +26,7 @@ let browser;
 (async () => {
   try {
     browser = await puppeteer.launch({
-      headless: 'new',
+      headless: 'true',
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     console.log('Puppeteer browser started');
