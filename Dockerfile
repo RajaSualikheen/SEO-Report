@@ -22,7 +22,7 @@ COPY . .
 RUN npx playwright install --with-deps chromium
 
 # Build the frontend (if you have a build step)
-RUN npm run build --prefix frontend
+# RUN npm run build --prefix frontend
 
 # Expose the port your backend runs on
 EXPOSE 5000
