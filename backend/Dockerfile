@@ -4,17 +4,17 @@ FROM node:22-slim
 # Set the working directory in the container
 WORKDIR /usr/src/app
 
-# Copy the top-level package.json and package-lock.json
+# Copy the backend's package.json and package-lock.json
 COPY package*.json ./
 
-# Install all dependencies from the single package.json
+# Install backend dependencies
 RUN npm install
 
-# Copy the rest of your application code into the container
+# Copy the rest of the backend's source code
 COPY . .
 
-# Make your app's port available to the outside world
+# Make your app's port available
 EXPOSE 4000
 
 # Define the command to run your app
-CMD ["node", "backend/index.js"]
+CMD ["node", "index.js"]
