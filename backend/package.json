@@ -29,6 +29,7 @@
     "node-nlp": "^5.0.0-alpha.5",
     "playwright": "^1.55.0",
     "playwright-extra": "^4.3.6",
+    "playwright-extra-plugin-stealth": "^0.0.1",
     "url": "^0.11.4",
     "winston": "^3.17.0",
     "xml2js": "^0.6.2"
