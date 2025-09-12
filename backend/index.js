@@ -1,4 +1,5 @@
 // old\backend-node\index.js
+console.log("--- DEPLOYMENT TEST: RUNNING LATEST CODE ---");
 import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
