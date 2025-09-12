@@ -1,31 +1,20 @@
-# Use the official Node.js 22 image as a base
+# Use the official Node.js 22 slim image as a parent image
 FROM node:22-slim
 
-# Set the working directory inside the container
+# Set the working directory in the container
 WORKDIR /usr/src/app
 
-# Copy package.json and package-lock.json first to leverage Docker caching
+# Copy the top-level package.json and package-lock.json
 COPY package*.json ./
-COPY backend/package*.json ./backend/
-COPY frontend/package*.json ./frontend/
 
-# Install all dependencies for the root, backend, and frontend
+# Install all dependencies from the single package.json
 RUN npm install
-RUN npm install --prefix backend
-RUN npm install --prefix frontend
 
-# Copy the rest of your application code
+# Copy the rest of your application code into the container
 COPY . .
 
-# -- IMPORTANT PART --
-# Install Playwright browsers and their system dependencies inside the Docker build
-RUN npx playwright install --with-deps chromium
+# Make your app's port available to the outside world
+EXPOSE 4000
 
-# Build the frontend (if you have a build step)
-# RUN npm run build --prefix frontend
-
-# Expose the port your backend runs on
-EXPOSE 5000
-
-# The command to start your backend server
-CMD [ "npm", "start", "--prefix", "backend" ]
+# Define the command to run your app
+CMD ["node", "backend/index.js"]
